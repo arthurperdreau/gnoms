@@ -1,0 +1,113 @@
+/* =========================================================
+   board.css — 11 x 11 grid, cell types, gnome + direction,
+   animation highlights.
+   ========================================================= */
+
+.board {
+  --board-size: 11;          /* keep in sync with BOARD_SIZE in js/config.js */
+  display: grid;
+  grid-template-columns: repeat(var(--board-size), 1fr);
+  grid-template-rows: repeat(var(--board-size), 1fr);
+  gap: 2px;
+  width: 100%;
+  max-width: var(--board-max-width);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  padding: 4px;
+  background: var(--color-soil-dark);
+  border-radius: var(--radius-small);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* ---------- Cells ---------- */
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--color-grass);
+  cursor: pointer;
+  overflow: hidden;
+}
+/* Light checkerboard so cells are easy to count */
+.cell:nth-child(2n) { background: #82bc67; }
+.cell:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+  z-index: 1;
+}
+
+.cell img,
+.cell .cell__icon {
+  width: 80%;
+  height: 80%;
+  pointer-events: none;
+}
+
+.cell--wall {
+  background: var(--color-stone) !important;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+
+.cell--treasure {
+  background: #e9d27a !important;
+  cursor: not-allowed;
+}
+
+/* Future obstacles (structure ready, see CELL_TYPES in config.js) */
+.cell--burrow { background: var(--color-soil) !important; }
+.cell--root   { background: #a67c52 !important; }
+.cell--rake   { background: #b0b0a0 !important; }
+
+/* Start cell of the gnome (shown after the gnome moved away) */
+.cell--start::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ---------- Gnome ---------- */
+.gnome {
+  position: absolute;
+  inset: 8%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+.gnome img { width: 100%; height: 100%; }
+
+/* The gnome SVG points North by default: rotate it for the direction */
+.gnome--N { transform: rotate(0deg); }
+.gnome--E { transform: rotate(90deg); }
+.gnome--S { transform: rotate(180deg); }
+.gnome--W { transform: rotate(270deg); }
+
+/* ---------- Mode hints ---------- */
+.board[data-mode="wall"] .cell:not(.cell--treasure):hover { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6); }
+.board[data-mode="gnome"] .cell:not(.cell--wall):not(.cell--treasure):hover { box-shadow: inset 0 0 0 3px var(--color-gnome-hat); }
+
+/* ---------- Animation highlights ---------- */
+.board.is-running .cell { cursor: default; }
+
+.cell--trail { box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.18); }
+
+.cell--blocked { animation: cell-blocked 0.35s ease; }
+@keyframes cell-blocked {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+.cell--victory { animation: cell-victory 0.8s ease 2; }
+@keyframes cell-victory {
+  0%, 100% { box-shadow: inset 0 0 0 0 var(--color-gold); }
+  50%      { box-shadow: inset 0 0 0 6px var(--color-gold); }
+}

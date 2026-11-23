@@ -1,0 +1,151 @@
+/* =========================================================
+   cards.css — cards in the palette and in the algorithm,
+   colour per family, nesting indentation, highlight states.
+   ========================================================= */
+
+/* ---------- Level filter ---------- */
+.level-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.btn--level { flex: 1 1 auto; font-size: 0.875rem; }
+
+/* ---------- Common card look ---------- */
+.card {
+  --family-color: var(--color-family-move);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-left: 6px solid var(--family-color);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  text-align: left;
+  cursor: pointer;
+}
+.card--move      { --family-color: var(--color-family-move); }
+.card--loop      { --family-color: var(--color-family-loop); }
+.card--condition { --family-color: var(--color-family-condition); }
+
+.card__label { flex: 1; font-weight: 600; }
+.card__level {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Palette ---------- */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+@media (min-width: 480px) {
+  .palette { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.palette .card:active { transform: scale(0.97); }
+.palette .card:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- Algorithm tree ---------- */
+.program-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.card-counter {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f4f6f1;
+}
+.card-counter--full { background: #fbe5e2; color: var(--color-danger); }
+
+.program,
+.program__children {
+  display: grid;
+  gap: 6px;
+}
+
+.program:empty::before {
+  content: attr(data-empty-text);
+  display: block;
+  padding: 16px;
+  text-align: center;
+  color: var(--color-text-muted);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-small);
+}
+
+.program__item { display: grid; gap: 6px; }
+
+.program__row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.program__row .card { flex: 1; }
+
+/* Delete button next to each card */
+.program__delete {
+  flex: 0 0 var(--tap-size);
+  min-height: var(--tap-size);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+/* Nested cards: visual indent + guide line in the family colour */
+.program__children {
+  margin-left: 14px;
+  padding-left: 10px;
+  border-left: 2px dashed var(--color-border);
+}
+.program__children--loop      { border-left-color: var(--color-family-loop); }
+.program__children--condition { border-left-color: var(--color-family-condition); }
+
+/* "then" / "else" slot labels inside an If */
+.program__slot-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-family-condition);
+}
+.program__slot-empty {
+  padding: 6px 10px;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-small);
+}
+
+/* Selected container (Repeat / If receiving new cards) */
+.card--selected {
+  background: #fff8e6;
+  box-shadow: 0 0 0 3px var(--family-color);
+}
+
+/* Card being executed during the animation */
+.card--current {
+  background: #fffbe0;
+  box-shadow: 0 0 0 3px var(--color-gold);
+  animation: card-pulse 0.4s ease;
+}
+@keyframes card-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
