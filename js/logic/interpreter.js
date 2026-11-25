@@ -216,7 +216,9 @@ export function moveOneSquare(ctx, card, way) {
  *
  *  - MUSHROOM: one more square in the direction of travel.
  *  - BURROW:   back to the start square (keeps looking the same way).
- *  - ROOT:     slides straight in the direction of travel until blocked.
+ *  - ROOT:     slides toward the tip of the root until blocked. Passing over
+ *              another root square (during a slide or a push) starts a new
+ *              slide toward that root's tip.
  *  - RAKE:     pushed back 2 squares, opposite to the direction of travel.
  *
  * @param {RunContext} ctx
@@ -242,9 +244,12 @@ export function applySquareEffect(ctx, card, travel) {
         return; // the start square has no effect
 
       case CELL_TYPES.ROOT:
-        // Slide until the next square blocks; the end of a slide is not a "blocked".
+        // Slide toward the tip until the next square blocks; the end of a
+        // slide is not a "blocked". A root crossed on the way redirects it.
+        direction = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y);
         while (!shouldStop(ctx) && stepGnome(ctx, card, direction, STEP_EVENTS.SLID, { recordBlocked: false })) {
           moved = true;
+          direction = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y) ?? direction;
         }
         break;
 
@@ -253,6 +258,8 @@ export function applySquareEffect(ctx, card, travel) {
         for (let i = 0; i < 2 && !shouldStop(ctx); i++) {
           if (!stepGnome(ctx, card, back, STEP_EVENTS.PUSHED, { recordBlocked: false })) break;
           moved = true;
+          // Pushed over a root: the push stops and the gnome slides
+          if (ctx.board.getCell(ctx.gnome.x, ctx.gnome.y) === CELL_TYPES.ROOT) break;
         }
         direction = back; // the gnome now travels the other way
         break;

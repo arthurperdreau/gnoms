@@ -48,6 +48,7 @@ describe('Printed board (BOARD_LAYOUT)', () => {
     assert.equal(counts[CELL_TYPES.MUSHROOM], 10);
     assert.equal(counts[CELL_TYPES.BURROW], 4);
     assert.equal(counts[CELL_TYPES.ROOT], 8); // 4 roots of 2 squares
+    assert.equal(BOARD_LAYOUT.roots.length, 4);
     assert.equal(counts[CELL_TYPES.RAKE], 4);
     assert.equal(counts[CELL_TYPES.OBSTACLE] ?? 0, 0, 'no rock at the start');
   });
@@ -57,6 +58,7 @@ describe('Printed board (BOARD_LAYOUT)', () => {
     const all = [
       ...BOARD_LAYOUT.starts,
       ...Object.values(BOARD_LAYOUT.squares).flat(),
+      ...BOARD_LAYOUT.roots.flatMap((root) => root.squares),
     ];
     for (const [x, y] of all) {
       assert.equal(board.isInside(x, y), true, `(${x}, ${y})`);
@@ -67,6 +69,16 @@ describe('Printed board (BOARD_LAYOUT)', () => {
 });
 
 describe('Board', () => {
+  test('each root square knows the direction of the root tip', () => {
+    const board = new Board();
+    assert.equal(board.getRootTip(2, 1), 'W');
+    assert.equal(board.getRootTip(3, 1), 'W');
+    assert.equal(board.getRootTip(8, 7), 'S');
+    assert.equal(board.getRootTip(1, 9), 'N');
+    assert.equal(board.getRootTip(0, 0), null);
+    assert.equal(board.clone().getRootTip(12, 2), 'W', 'kept by clone()');
+  });
+
   test('a board of another size works the same way', () => {
     for (const [width, height] of [[5, 5], [7, 9], [11, 11], [16, 12]]) {
       const board = new Board(plainLayout({ width, height }));

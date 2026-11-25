@@ -18,7 +18,7 @@ export const CELL_TYPES = Object.freeze({
   OBSTACLE: 'obstacle', // rock added by the player; blocks the gnome
   MUSHROOM: 'mushroom', // the gnome moves 1 more square the way it was going
   BURROW: 'burrow',     // the gnome goes back to its start square
-  ROOT: 'root',         // the gnome slides straight until it is blocked
+  ROOT: 'root',         // the gnome slides toward the tip of the root until it is blocked
   RAKE: 'rake',         // the gnome is pushed 2 squares back, opposite to where it came from
 });
 
@@ -28,7 +28,9 @@ export const CELL_TYPES = Object.freeze({
  * @property {number} height  Number of rows.
  * @property {{x: number, y: number, width: number, height: number}} treasure Treasure zone.
  * @property {Array<[number, number]>} starts Start squares (footprints), as [x, y].
- * @property {Partial<Record<string, Array<[number, number]>>>} squares Special squares per CELL_TYPES value.
+ * @property {Partial<Record<string, Array<[number, number]>>>} squares Special squares per CELL_TYPES value (roots excepted).
+ * @property {Array<{squares: Array<[number, number]>, tip: 'N'|'E'|'S'|'W'}>} [roots]
+ *   Roots: the squares they cover and the direction their tip points to.
  */
 
 /**
@@ -45,10 +47,16 @@ export const BOARD_LAYOUT = Object.freeze({
   squares: {
     [CELL_TYPES.MUSHROOM]: [[6, 1], [9, 2], [0, 3], [5, 4], [12, 5], [1, 6], [5, 8], [11, 9], [1, 11], [7, 11]],
     [CELL_TYPES.BURROW]: [[9, 0], [2, 3], [10, 6], [3, 10]],
-    // Each root covers 2 squares
-    [CELL_TYPES.ROOT]: [[2, 1], [3, 1], [11, 2], [12, 2], [8, 7], [8, 8], [1, 8], [1, 9]],
     [CELL_TYPES.RAKE]: [[8, 3], [4, 6], [11, 11], [4, 12]],
   },
+  // Each root covers 2 squares. The tip is the thin end, opposite to the rock
+  // at the base of the root on the picture.
+  roots: [
+    { squares: [[2, 1], [3, 1]], tip: 'W' },
+    { squares: [[11, 2], [12, 2]], tip: 'W' },
+    { squares: [[8, 7], [8, 8]], tip: 'S' },
+    { squares: [[1, 8], [1, 9]], tip: 'N' },
+  ],
 });
 
 /**

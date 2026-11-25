@@ -34,6 +34,8 @@ export class Board {
     this.height = layout.height;
     /** @type {string[][]} cells[y][x] */
     this.cells = [];
+    /** @type {Map<string, 'N'|'E'|'S'|'W'>} "x,y" of a root square -> direction of the root's tip */
+    this.rootTips = new Map();
     this.reset();
   }
 
@@ -42,7 +44,7 @@ export class Board {
    * @returns {void}
    */
   reset() {
-    const { width, height, treasure, starts, squares = {} } = this.layout;
+    const { width, height, treasure, starts, squares = {}, roots = [] } = this.layout;
     this.cells = Array.from({ length: height }, () => Array(width).fill(CELL_TYPES.EMPTY));
 
     for (let y = treasure.y; y < treasure.y + treasure.height; y++) {
@@ -54,6 +56,23 @@ export class Board {
     for (const [type, positions] of Object.entries(squares)) {
       for (const [x, y] of positions) this.cells[y][x] = type;
     }
+    this.rootTips = new Map();
+    for (const root of roots) {
+      for (const [x, y] of root.squares) {
+        this.cells[y][x] = CELL_TYPES.ROOT;
+        this.rootTips.set(`${x},${y}`, root.tip);
+      }
+    }
+  }
+
+  /**
+   * Direction the tip of a root points to.
+   * @param {number} x
+   * @param {number} y
+   * @returns {'N'|'E'|'S'|'W'|null} null if the square is not a root.
+   */
+  getRootTip(x, y) {
+    return this.rootTips.get(`${x},${y}`) ?? null;
   }
 
   /**
@@ -187,7 +206,7 @@ export class Board {
    */
   clone() {
     const copy = new Board(this.layout);
-    copy.cells = this.cells.map((row) => row.slice());
+    copy.cells = this.cells.map((row) => row.slice()); // rootTips are rebuilt from the layout
     return copy;
   }
 }

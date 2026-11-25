@@ -22,11 +22,13 @@ Le simulateur utilise le plateau imprimé du jeu (`assets/img/board.png`) : 14 c
 | Treasure (2 × 2 au centre) | victoire, l'algorithme s'arrête |
 | Champignon | le gnome avance d'une case de plus, dans le sens où il allait |
 | Terrier | le gnome retourne à sa case de départ |
-| Racine (2 cases) | le gnome glisse tout droit jusqu'à être bloqué |
+| Racine (2 cases) | quand le gnome tombe ou passe sur une racine, il glisse vers la pointe de la racine jusqu'à être bloqué |
 | Râteau | le gnome est repoussé de 2 cases, dans le sens opposé à son arrivée |
 | Rocher (ajouté par le joueur) | obstacle : le gnome est blocked |
 
 Les effets peuvent s'enchaîner (un râteau qui repousse sur un champignon…). Une chaîne sans fin est arrêtée par la limite d'étapes. La fin d'une glissade ou d'une poussée contre un obstacle ne compte pas comme « blocked ».
+
+La pointe d'une racine est son extrémité fine, à l'opposé du rocher qui marque sa base ; le sens de chaque pointe est noté dans `BOARD_LAYOUT.roots`.
 
 Les positions de tous les éléments sont dans `BOARD_LAYOUT` (`js/config.js`), et la position de la grille dans l'image dans `BOARD_IMAGE`. Si l'équipe change le plateau, il suffit de remplacer l'image et de mettre à jour ces deux objets.
 
