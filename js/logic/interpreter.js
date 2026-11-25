@@ -11,6 +11,8 @@
  *  - An Else card runs its card only when the If right above it was false.
  *  - Special squares act when the gnome arrives on them (see applySquareEffect):
  *    mushroom, burrow, root, rake. Their moves are recorded as steps too.
+ *    The effect ends the card: a Forward 2 whose first square is special does
+ *    not do its second square.
  *  - Reaching the treasure stops everything, even in the middle of the algorithm.
  *  - After MAX_STEPS steps the run stops (status "maxSteps").
  *
@@ -199,13 +201,15 @@ export function stepGnome(ctx, card, travel, event, options = {}) {
  * @param {RunContext} ctx
  * @param {CardInstance} card
  * @param {'forward'|'back'} way
- * @returns {boolean} true if the gnome moved (false if it was blocked).
+ * @returns {boolean} true if the card can go on with its next square:
+ *   false when the gnome was blocked, or when it landed on a special square
+ *   (the effect of a special square ends the card).
  */
 export function moveOneSquare(ctx, card, way) {
   const travel = way === 'forward' ? ctx.gnome.direction : rotateDirection(ctx.gnome.direction, 2);
-  const moved = stepGnome(ctx, card, travel, STEP_EVENTS.MOVED);
-  if (moved) applySquareEffect(ctx, card, travel);
-  return moved;
+  if (!stepGnome(ctx, card, travel, STEP_EVENTS.MOVED)) return false;
+  const hadEffect = applySquareEffect(ctx, card, travel);
+  return !hadEffect;
 }
 
 /**
@@ -224,10 +228,11 @@ export function moveOneSquare(ctx, card, way) {
  * @param {RunContext} ctx
  * @param {CardInstance} card
  * @param {'N'|'E'|'S'|'W'} travel Direction the gnome was moving when it arrived.
- * @returns {void}
+ * @returns {boolean} true if the square had an effect (used to end the card).
  */
 export function applySquareEffect(ctx, card, travel) {
   let direction = travel;
+  let hadEffect = false;
 
   while (!shouldStop(ctx)) {
     const type = ctx.board.getCell(ctx.gnome.x, ctx.gnome.y);
@@ -241,7 +246,7 @@ export function applySquareEffect(ctx, card, travel) {
       case CELL_TYPES.BURROW:
         ctx.gnome = moveTo(ctx.gnome, ctx.startGnome);
         recordStep(ctx, card.uid, STEP_EVENTS.BURROW);
-        return; // the start square has no effect
+        return true; // the start square has no effect
 
       case CELL_TYPES.ROOT:
         // Slide toward the tip until the next square blocks; the end of a
@@ -266,11 +271,13 @@ export function applySquareEffect(ctx, card, travel) {
       }
 
       default:
-        return; // empty, start, treasure: no effect
+        return hadEffect; // empty, start, treasure: no effect
     }
 
-    if (!moved) return;
+    hadEffect = true;
+    if (!moved) return hadEffect;
   }
+  return hadEffect;
 }
 
 /**
@@ -296,8 +303,8 @@ export function evaluateCondition(condition, ctx) {
 // ---------------------------------------------------------------------------
 
 /**
- * Forward N: move one square at a time, N times. If the gnome is blocked,
- * it stops: the remaining squares of this card are not tried.
+ * Forward N: move one square at a time, N times. The card ends early when the
+ * gnome is blocked, or when it lands on a special square (after its effect).
  * @param {CardInstance} card
  * @param {CardDefinition} def
  * @param {RunContext} ctx
@@ -310,6 +317,7 @@ export function handleForward(card, def, ctx) {
 
 /**
  * Back N: same as handleForward backward. The direction does not change.
+ * Ends early on a blocked move or a special square, like Forward.
  * @param {CardInstance} card
  * @param {CardDefinition} def
  * @param {RunContext} ctx

@@ -368,6 +368,27 @@ describe('Special squares', () => {
     assert.deepEqual(result.finalGnome, { x: 7, y: 10, direction: 'N' });
   });
 
+  test('a special square ends the card: Forward 2 does not do its 2nd square', () => {
+    const board = withRoots([[[3, 8]], 'W']);
+    const result = run([FORWARD_2, TURN_RIGHT], { x: 3, y: 9, direction: 'N' }, board);
+    assert.deepEqual(events(result), [
+      STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.SLID, STEP_EVENTS.SLID, STEP_EVENTS.TURNED,
+    ]);
+    assert.deepEqual(result.finalGnome, { x: 0, y: 8, direction: 'E' });
+  });
+
+  test('a mushroom on the 1st square of Forward 2 also ends the card', () => {
+    const result = run([FORWARD_2], { x: 2, y: 8, direction: 'N' }, plainBoard({ [MUSHROOM]: [[2, 7]] }));
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.MUSHROOM]);
+    assert.deepEqual(result.finalGnome, { x: 2, y: 6, direction: 'N' });
+  });
+
+  test('inside a Repeat, the next turn of the loop still runs after a special square', () => {
+    const result = run([[REPEAT_2, FORWARD_2]], { x: 2, y: 9, direction: 'N' }, plainBoard({ [MUSHROOM]: [[2, 8]] }));
+    // 1st turn: (2, 8) mushroom -> (2, 7), card ends; 2nd turn: (2, 6), (2, 5)
+    assert.deepEqual(result.finalGnome, { x: 2, y: 5, direction: 'N' });
+  });
+
   test('an endless chain of effects is stopped by MAX_STEPS', () => {
     // Two rakes 2 squares apart push the gnome back and forth forever
     const board = plainBoard({ [RAKE]: [[2, 5], [2, 7]] });

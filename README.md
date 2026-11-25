@@ -26,7 +26,7 @@ Le simulateur utilise le plateau imprimé du jeu (`assets/img/board.png`) : 14 c
 | Râteau | le gnome est repoussé de 2 cases, dans le sens opposé à son arrivée |
 | Rocher (ajouté par le joueur) | obstacle : le gnome est blocked |
 
-Les effets peuvent s'enchaîner (un râteau qui repousse sur un champignon…). Une chaîne sans fin est arrêtée par la limite d'étapes. La fin d'une glissade ou d'une poussée contre un obstacle ne compte pas comme « blocked ».
+L'effet d'une case spéciale termine la carte en cours : avec Forward 2, si la première case est spéciale, le gnome ne fait pas sa deuxième case (dans un Repeat, le tour suivant a bien lieu). Les effets peuvent s'enchaîner (un râteau qui repousse sur un champignon…). Une chaîne sans fin est arrêtée par la limite d'étapes. La fin d'une glissade ou d'une poussée contre un obstacle ne compte pas comme « blocked ».
 
 La pointe d'une racine est son extrémité fine, à l'opposé du rocher qui marque sa base ; le sens de chaque pointe est noté dans `BOARD_LAYOUT.roots`.
 
