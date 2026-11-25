@@ -18,7 +18,7 @@ export const CELL_TYPES = Object.freeze({
   OBSTACLE: 'obstacle', // rock added by the player; blocks the gnome
   MUSHROOM: 'mushroom', // the gnome moves 1 more square the way it was going
   BURROW: 'burrow',     // the gnome goes back to its start square
-  ROOT: 'root',         // the gnome slides toward the tip of the root until it is blocked
+  ROOT: 'root',         // the gnome slides along the root and comes off at its tip
   RAKE: 'rake',         // the gnome is pushed 2 squares back, opposite to where it came from
 });
 

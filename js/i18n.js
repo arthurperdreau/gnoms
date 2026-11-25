@@ -83,7 +83,7 @@ export const TEXTS = Object.freeze({
   effectMessages: Object.freeze({
     mushroom: 'Mushroom! The gnome moves 1 more square.',
     burrow: 'Burrow! The gnome goes back to its start square.',
-    slid: 'Root! The gnome slides toward the tip of the root…',
+    slid: 'Root! The gnome slides along the root and comes off at its tip.',
     pushed: 'Rake! The gnome is pushed back…',
   }),
 

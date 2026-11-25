@@ -22,7 +22,7 @@ Le simulateur utilise le plateau imprimé du jeu (`assets/img/board.png`) : 14 c
 | Treasure (2 × 2 au centre) | victoire, l'algorithme s'arrête |
 | Champignon | le gnome avance d'une case de plus, dans le sens où il allait |
 | Terrier | le gnome retourne à sa case de départ |
-| Racine (2 cases) | quand le gnome tombe ou passe sur une racine, il glisse vers la pointe de la racine jusqu'à être bloqué |
+| Racine (2 cases) | quand le gnome tombe ou passe sur une racine, il glisse le long de la racine vers sa pointe et s'arrête sur la case juste après la pointe (il reste sur la racine si cette case est bloquée) |
 | Râteau | le gnome est repoussé de 2 cases, dans le sens opposé à son arrivée |
 | Rocher (ajouté par le joueur) | obstacle : le gnome est blocked |
 

@@ -220,9 +220,10 @@ export function moveOneSquare(ctx, card, way) {
  *
  *  - MUSHROOM: one more square in the direction of travel.
  *  - BURROW:   back to the start square (keeps looking the same way).
- *  - ROOT:     slides toward the tip of the root until blocked. Passing over
- *              another root square (during a slide or a push) starts a new
- *              slide toward that root's tip.
+ *  - ROOT:     slides along the root toward its tip and comes off it: the
+ *              gnome stops on the square right after the tip (or on the
+ *              root if that square is blocked). Sliding onto another root
+ *              follows that root too.
  *  - RAKE:     pushed back 2 squares, opposite to the direction of travel.
  *
  * @param {RunContext} ctx
@@ -248,15 +249,22 @@ export function applySquareEffect(ctx, card, travel) {
         recordStep(ctx, card.uid, STEP_EVENTS.BURROW);
         return true; // the start square has no effect
 
-      case CELL_TYPES.ROOT:
-        // Slide toward the tip until the next square blocks; the end of a
-        // slide is not a "blocked". A root crossed on the way redirects it.
-        direction = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y);
-        while (!shouldStop(ctx) && stepGnome(ctx, card, direction, STEP_EVENTS.SLID, { recordBlocked: false })) {
+      case CELL_TYPES.ROOT: {
+        // Slide one square at a time toward the tip, as long as the gnome is
+        // on a root; the first square off the root ends the slide. A slide
+        // stopped by an obstacle is not a "blocked".
+        let tip = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y);
+        while (tip && !shouldStop(ctx)) {
+          direction = tip;
+          if (!stepGnome(ctx, card, direction, STEP_EVENTS.SLID, { recordBlocked: false })) break;
           moved = true;
-          direction = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y) ?? direction;
+          tip = ctx.board.getRootTip(ctx.gnome.x, ctx.gnome.y);
+        }
+        if (moved && ctx.board.getCell(ctx.gnome.x, ctx.gnome.y) === CELL_TYPES.ROOT) {
+          return true; // blocked while still on the root: nothing more happens
         }
         break;
+      }
 
       case CELL_TYPES.RAKE: {
         const back = rotateDirection(direction, 2);

@@ -303,49 +303,99 @@ describe('Special squares', () => {
   /** Plain board with roots, given as [squares, tip]. */
   const withRoots = (...roots) => new Board(plainLayout({ roots: roots.map(([squares, tip]) => ({ squares, tip })) }));
 
-  test('root: the gnome slides toward the tip until it is blocked (not counted as blocked)', () => {
-    // Gnome goes North onto a root whose tip points West
+  test('root: the gnome slides along the root and stops on the square after the tip', () => {
+    // Root on (4, 8)-(5, 8), tip to the West. The gnome falls on (5, 8).
     const board = withRoots([[[4, 8], [5, 8]], 'W']);
     const result = run([FORWARD_1], { x: 5, y: 9, direction: 'N' }, board);
-    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, ...Array(5).fill(STEP_EVENTS.SLID)]);
-    assert.deepEqual(result.finalGnome, { x: 0, y: 8, direction: 'N' }, 'still looking North');
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.SLID]);
+    assert.deepEqual(result.steps.map((st) => [st.gnome.x, st.gnome.y]).slice(1), [[5, 8], [4, 8], [3, 8]]);
+    assert.deepEqual(result.finalGnome, { x: 3, y: 8, direction: 'N' }, 'still looking North');
     assert.equal(result.blockedCount, 0);
   });
 
-  test('root: the slide goes toward the tip whatever the way the gnome arrived', () => {
-    const board = withRoots([[[3, 5], [3, 6]], 'S']);
-    const fromBelow = run([FORWARD_1], { x: 3, y: 7, direction: 'N' }, board);
-    assert.deepEqual(fromBelow.finalGnome, { x: 3, y: LAST, direction: 'N' });
-    const fromTheSide = run([FORWARD_1], { x: 2, y: 5, direction: 'E' }, board);
-    assert.deepEqual(fromTheSide.finalGnome, { x: 3, y: LAST, direction: 'E' });
+  test('root: falling on the tip square, the gnome comes off right after it', () => {
+    const board = withRoots([[[4, 8], [5, 8]], 'W']);
+    const result = run([FORWARD_1], { x: 4, y: 9, direction: 'N' }, board);
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.SLID]);
+    assert.deepEqual(result.finalGnome, { x: 3, y: 8, direction: 'N' });
   });
 
-  test('root: a slide that crosses the treasure wins', () => {
-    const board = withRoots([[[T.x, T.y + 3]], 'N']);
-    const result = run([FORWARD_1, U_TURN], { x: T.x - 1, y: T.y + 3, direction: 'E' }, board);
+  test('root: the slide follows the tip whatever the way the gnome arrived', () => {
+    const board = withRoots([[[3, 5], [3, 6]], 'S']);
+    const fromTheSide = run([FORWARD_1], { x: 2, y: 5, direction: 'E' }, board);
+    assert.deepEqual(fromTheSide.finalGnome, { x: 3, y: 7, direction: 'E' });
+    const fromAbove = run([FORWARD_1], { x: 3, y: 4, direction: 'S' }, board);
+    assert.deepEqual(fromAbove.finalGnome, { x: 3, y: 7, direction: 'S' });
+  });
+
+  test('root: blocked right after the tip, the gnome stays on the root (not counted as blocked)', () => {
+    const board = withRoots([[[4, 8], [5, 8]], 'W']);
+    board.placeObstacle(3, 8);
+    const result = run([FORWARD_1], { x: 5, y: 9, direction: 'N' }, board);
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.SLID]);
+    assert.deepEqual(result.finalGnome, { x: 4, y: 8, direction: 'N' });
+    assert.equal(result.blockedCount, 0);
+  });
+
+  test('root: coming off the tip onto the treasure wins', () => {
+    const board = withRoots([[[T.x, T.y + 1]], 'N']);
+    const result = run([FORWARD_1, U_TURN], { x: T.x - 1, y: T.y + 1, direction: 'E' }, board);
     assert.equal(result.status, RUN_STATUS.TREASURE);
     assert.deepEqual(result.finalGnome, { x: T.x, y: T.y, direction: 'E' });
   });
 
-  test('root: passing over another root during a slide follows its tip', () => {
-    // First root sends the gnome West, it crosses a root pointing North
-    const board = withRoots([[[8, 8]], 'W'], [[[6, 8]], 'N']);
+  test('root: sliding onto another root follows that root too', () => {
+    // (8, 8) tip West leads onto (7, 8), whose tip points North -> off at (7, 7)
+    const board = withRoots([[[8, 8]], 'W'], [[[7, 8]], 'N']);
     const result = run([FORWARD_1], { x: 8, y: 9, direction: 'N' }, board);
-    assert.deepEqual(result.finalGnome, { x: 6, y: 0, direction: 'N' });
+    assert.deepEqual(result.finalGnome, { x: 7, y: 7, direction: 'N' });
+  });
+
+  test('root: coming off onto a mushroom chains the mushroom effect', () => {
+    const board = new Board(plainLayout({
+      squares: { [MUSHROOM]: [[3, 8]] },
+      roots: [{ squares: [[4, 8]], tip: 'W' }],
+    }));
+    const result = run([FORWARD_1], { x: 4, y: 9, direction: 'N' }, board);
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.MUSHROOM]);
+    assert.deepEqual(result.finalGnome, { x: 2, y: 8, direction: 'N' });
   });
 
   test('root: a rake pushing the gnome over a root stops the push and makes it slide', () => {
     // Gnome leaves (7, 9) going North onto the rake (7, 8), is pushed South
-    // back onto (7, 9), which is a root pointing East.
+    // back onto (7, 9), which is a root pointing East -> off at (8, 9).
     const board = new Board(plainLayout({
       squares: { [RAKE]: [[7, 8]] },
       roots: [{ squares: [[7, 9]], tip: 'E' }],
     }));
     const result = run([FORWARD_1], { x: 7, y: 9, direction: 'N' }, board);
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.PUSHED, STEP_EVENTS.SLID]);
+    assert.deepEqual(result.finalGnome, { x: 8, y: 9, direction: 'N' });
+  });
+
+  test('on the printed board: each root sends the gnome off its tip', () => {
+    const cases = [
+      // [start gnome, expected end]: the gnome steps onto the base of the root
+      [{ x: 4, y: 1, direction: 'W' }, { x: 1, y: 1 }], // root (2,1)-(3,1), tip W
+      [{ x: 13, y: 2, direction: 'W' }, { x: 10, y: 2 }], // root (11,2)-(12,2), tip W
+      [{ x: 8, y: 6, direction: 'S' }, { x: 8, y: 9 }], // root (8,7)-(8,8), tip S
+      [{ x: 1, y: 10, direction: 'N' }, { x: 1, y: 7 }], // root (1,8)-(1,9), tip N
+    ];
+    for (const [start, end] of cases) {
+      const result = run([FORWARD_1], start, new Board());
+      assert.deepEqual(result.finalGnome, { ...end, direction: start.direction }, JSON.stringify(start));
+      assert.equal(result.status, RUN_STATUS.FINISHED);
+    }
+  });
+
+  test('on the printed board: the reported algorithm ends on (1, 7), not at the edge', () => {
+    // Forward 1, Forward 2, Turn right, Forward 1 from the bottom-left footprints
+    const result = run([FORWARD_1, FORWARD_2, TURN_RIGHT, FORWARD_1], { x: 0, y: 12, direction: 'N' }, new Board());
     assert.deepEqual(events(result), [
-      STEP_EVENTS.MOVED, STEP_EVENTS.PUSHED, STEP_EVENTS.SLID, STEP_EVENTS.SLID, STEP_EVENTS.SLID,
+      STEP_EVENTS.MOVED, STEP_EVENTS.MOVED, STEP_EVENTS.MOVED, STEP_EVENTS.TURNED,
+      STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.SLID,
     ]);
-    assert.deepEqual(result.finalGnome, { x: LAST, y: 9, direction: 'N' });
+    assert.deepEqual(result.finalGnome, { x: 1, y: 7, direction: 'E' });
   });
 
   test('rake: the gnome is pushed 2 squares back, opposite to where it came from', () => {
@@ -371,10 +421,8 @@ describe('Special squares', () => {
   test('a special square ends the card: Forward 2 does not do its 2nd square', () => {
     const board = withRoots([[[3, 8]], 'W']);
     const result = run([FORWARD_2, TURN_RIGHT], { x: 3, y: 9, direction: 'N' }, board);
-    assert.deepEqual(events(result), [
-      STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.SLID, STEP_EVENTS.SLID, STEP_EVENTS.TURNED,
-    ]);
-    assert.deepEqual(result.finalGnome, { x: 0, y: 8, direction: 'E' });
+    assert.deepEqual(events(result), [STEP_EVENTS.MOVED, STEP_EVENTS.SLID, STEP_EVENTS.TURNED]);
+    assert.deepEqual(result.finalGnome, { x: 2, y: 8, direction: 'E' });
   });
 
   test('a mushroom on the 1st square of Forward 2 also ends the card', () => {
