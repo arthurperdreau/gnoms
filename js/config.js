@@ -7,23 +7,60 @@
  */
 
 /**
- * Width and height of the square board, in squares.
- * Not decided yet by the team: every other file derives the size from here.
+ * Square types. A board is a grid of these values.
+ * Effects of the special squares are handled in `applySquareEffect()`
+ * (js/logic/interpreter.js).
  */
-export const BOARD_SIZE = 11;
+export const CELL_TYPES = Object.freeze({
+  EMPTY: 'empty',
+  START: 'start',       // footprints: the gnome starts on one of them
+  TREASURE: 'treasure', // the goal (a 2 x 2 zone on the board)
+  OBSTACLE: 'obstacle', // rock added by the player; blocks the gnome
+  MUSHROOM: 'mushroom', // the gnome moves 1 more square the way it was going
+  BURROW: 'burrow',     // the gnome goes back to its start square
+  ROOT: 'root',         // the gnome slides straight until it is blocked
+  RAKE: 'rake',         // the gnome is pushed 2 squares back, opposite to where it came from
+});
 
 /**
- * Center square of a board of a given size (the treasure).
- * @param {number} size
- * @returns {{x: number, y: number}}
+ * @typedef {Object} BoardLayout
+ * @property {number} width   Number of columns.
+ * @property {number} height  Number of rows.
+ * @property {{x: number, y: number, width: number, height: number}} treasure Treasure zone.
+ * @property {Array<[number, number]>} starts Start squares (footprints), as [x, y].
+ * @property {Partial<Record<string, Array<[number, number]>>>} squares Special squares per CELL_TYPES value.
  */
-export function getTreasurePosition(size) {
-  const center = Math.floor(size / 2);
-  return { x: center, y: center };
-}
 
-/** Fixed position of the treasure on the default board. */
-export const TREASURE_POSITION = Object.freeze(getTreasurePosition(BOARD_SIZE));
+/**
+ * The printed Gnomads board (assets/img/board.png): 14 columns x 13 rows.
+ * Coordinates: x from 0 (left) to width - 1, y from 0 (top) to height - 1.
+ * Everything else (grid, CSS columns, treasure, tests) derives from this object.
+ * @type {Readonly<BoardLayout>}
+ */
+export const BOARD_LAYOUT = Object.freeze({
+  width: 14,
+  height: 13,
+  treasure: { x: 6, y: 5, width: 2, height: 2 },
+  starts: [[0, 0], [13, 0], [0, 12], [13, 12]],
+  squares: {
+    [CELL_TYPES.MUSHROOM]: [[6, 1], [9, 2], [0, 3], [5, 4], [12, 5], [1, 6], [5, 8], [11, 9], [1, 11], [7, 11]],
+    [CELL_TYPES.BURROW]: [[9, 0], [2, 3], [10, 6], [3, 10]],
+    // Each root covers 2 squares
+    [CELL_TYPES.ROOT]: [[2, 1], [3, 1], [11, 2], [12, 2], [8, 7], [8, 8], [1, 8], [1, 9]],
+    [CELL_TYPES.RAKE]: [[8, 3], [4, 6], [11, 11], [4, 12]],
+  },
+});
+
+/**
+ * Where the grid is drawn in the board picture, in pixels of the picture.
+ * Used by the UI only, to place the clickable squares exactly on the drawing.
+ */
+export const BOARD_IMAGE = Object.freeze({
+  src: 'assets/img/board.png',
+  width: 1798,
+  height: 1699,
+  grid: Object.freeze({ left: 101, top: 114, right: 1688, bottom: 1587 }),
+});
 
 /**
  * Directions of the gnome and the vector to move one square forward.
@@ -42,21 +79,6 @@ export const DIRECTIONS = Object.freeze({
  * turning left = previous index, U-turn = index + 2 (modulo 4).
  */
 export const DIRECTION_ORDER = Object.freeze(['N', 'E', 'S', 'W']);
-
-/**
- * Square types. Only EMPTY, OBSTACLE and TREASURE are used in this version.
- * BURROW, ROOT and RAKE are reserved for the obstacles of the physical game:
- * their effect will be handled in `applySquareEffect()` in js/logic/interpreter.js.
- */
-export const CELL_TYPES = Object.freeze({
-  EMPTY: 'empty',
-  OBSTACLE: 'obstacle', // shown as a rock; blocks the gnome
-  TREASURE: 'treasure',
-  // --- Future obstacles (not implemented yet) ---
-  BURROW: 'burrow', // the gnome goes back to its start square
-  ROOT: 'root',     // the gnome slides straight until it is blocked
-  RAKE: 'rake',     // the gnome is pushed 2 squares back, opposite to where it came from
-});
 
 /** Maximum number of cards in one algorithm (a hand in the physical game), contained cards included. */
 export const MAX_CARDS = 8;
@@ -89,6 +111,11 @@ export const STEP_EVENTS = Object.freeze({
   TURNED: 'turned',
   CHECKED: 'checked',   // an If card was evaluated (no movement)
   TREASURE: 'treasure',
+  // Moves caused by a special square
+  MUSHROOM: 'mushroom', // one more square
+  BURROW: 'burrow',     // back to the start square
+  SLID: 'slid',         // one square of a root slide
+  PUSHED: 'pushed',     // one square pushed back by a rake
 });
 
 /** Final status of a run, returned by the interpreter. */
@@ -105,5 +132,9 @@ export const TOOL_MODES = Object.freeze({
   DIRECTION: 'direction',
 });
 
-/** Default gnome when the page loads: bottom-left square, looking North. */
-export const DEFAULT_GNOME = Object.freeze({ x: 0, y: BOARD_SIZE - 1, direction: 'N' });
+/** Default gnome when the page loads: bottom-left footprints, looking North. */
+export const DEFAULT_GNOME = Object.freeze({
+  x: BOARD_LAYOUT.starts[2][0],
+  y: BOARD_LAYOUT.starts[2][1],
+  direction: 'N',
+});

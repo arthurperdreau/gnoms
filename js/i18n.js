@@ -61,7 +61,15 @@ export const TEXTS = Object.freeze({
   // Board
   gnomeLabel: (direction) => `Gnome looking ${direction}`,
   squareLabel: (x, y) => `Square ${x}, ${y}`,
-  squareTypes: Object.freeze({ obstacle: 'rock', treasure: 'treasure' }),
+  squareTypes: Object.freeze({
+    start: 'footprints',
+    treasure: 'treasure',
+    obstacle: 'rock',
+    mushroom: 'mushroom',
+    burrow: 'burrow',
+    root: 'root',
+    rake: 'rake',
+  }),
 
   // Buttons
   run: 'Run',
@@ -72,13 +80,13 @@ export const TEXTS = Object.freeze({
   clearObstacles: 'Clear obstacles',
 
   // Messages
-  msgReady: 'Place your gnome, build an algorithm, then press Run.',
+  msgReady: 'Put your gnome on a footprints square, build an algorithm, then press Run.',
   msgEmptyProgram: 'Your algorithm is empty.',
   msgCardLimit: (max) => `Your hand is full (${max} cards maximum).`,
   msgElseWithoutIf: 'An Else card goes right under an If card (one Else per If).',
   msgSlotFull: 'This card already holds a card.',
-  msgCannotPlaceObstacle: 'You cannot put an obstacle here.',
-  msgCannotPlaceGnome: 'The gnome cannot go on an obstacle or on the treasure.',
+  msgCannotPlaceObstacle: 'Rocks go on empty squares only.',
+  msgCannotPlaceGnome: 'The gnome starts on one of the 4 footprints squares.',
   msgTreasure: (steps) => `Treasure found in ${steps} steps!`,
   msgFinished: (x, y, direction) => `Algorithm finished. Gnome on square (${x}, ${y}), looking ${direction}.`,
   msgBlocked: (count) => `It was blocked ${count} time${count === 1 ? '' : 's'}.`,

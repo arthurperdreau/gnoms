@@ -9,6 +9,8 @@
  *    its square (event "blocked"). This is not an error: execution goes on.
  *  - If blocked / If not blocked test the square in front of the gnome.
  *  - An Else card runs its card only when the If right above it was false.
+ *  - Special squares act when the gnome arrives on them (see applySquareEffect):
+ *    mushroom, burrow, root, rake. Their moves are recorded as steps too.
  *  - Reaching the treasure stops everything, even in the middle of the algorithm.
  *  - After MAX_STEPS steps the run stops (status "maxSteps").
  *
@@ -40,9 +42,9 @@
  * @property {number} maxSteps
  */
 
-import { MAX_STEPS, STEP_EVENTS, RUN_STATUS, CELL_TYPES } from '../config.js';
+import { MAX_STEPS, STEP_EVENTS, RUN_STATUS, CELL_TYPES, DIRECTIONS } from '../config.js';
 import { getCardDefinition, CONDITIONS } from './cards.js';
-import { rotateDirection, cellAhead, cellBehind, moveTo, cloneGnome } from './gnome.js';
+import { rotateDirection, cellAhead, moveTo, cloneGnome } from './gnome.js';
 
 /**
  * Main entry point: run an algorithm.
@@ -151,18 +153,31 @@ export function recordStep(ctx, cardUid, event, details) {
 }
 
 /**
- * Try to move the gnome by exactly one square, forward or backward, keeping its direction.
- * Records "moved", "blocked" or "treasure".
+ * Square next to a position, in a direction.
+ * @param {{x: number, y: number}} position
+ * @param {'N'|'E'|'S'|'W'} direction
+ * @returns {{x: number, y: number}}
+ */
+export function nextSquare(position, direction) {
+  const { dx, dy } = DIRECTIONS[direction];
+  return { x: position.x + dx, y: position.y + dy };
+}
+
+/**
+ * Move the gnome one square in a direction of travel, keeping the way it looks.
+ * Records `event` (or "blocked" / "treasure").
  * @param {RunContext} ctx
  * @param {CardInstance} card
- * @param {'forward'|'back'} way
+ * @param {'N'|'E'|'S'|'W'} travel Direction of the move (not always the way the gnome looks).
+ * @param {string} event STEP_EVENTS value recorded when the gnome moves.
+ * @param {{recordBlocked?: boolean}} [options] recordBlocked=false: a blocked move records nothing.
  * @returns {boolean} true if the gnome moved.
  */
-export function moveOneSquare(ctx, card, way) {
-  const target = way === 'forward' ? cellAhead(ctx.gnome) : cellBehind(ctx.gnome);
+export function stepGnome(ctx, card, travel, event, options = {}) {
+  const target = nextSquare(ctx.gnome, travel);
 
   if (ctx.board.isBlocking(target.x, target.y)) {
-    recordStep(ctx, card.uid, STEP_EVENTS.BLOCKED);
+    if (options.recordBlocked !== false) recordStep(ctx, card.uid, STEP_EVENTS.BLOCKED);
     return false;
   }
 
@@ -174,32 +189,80 @@ export function moveOneSquare(ctx, card, way) {
     return true;
   }
 
-  recordStep(ctx, card.uid, STEP_EVENTS.MOVED);
-  applySquareEffect(ctx, card, way);
+  recordStep(ctx, card.uid, event);
   return true;
 }
 
 /**
- * Effect of the square the gnome just arrived on. Nothing happens for EMPTY
- * in this version. THIS IS THE PLACE to add the future obstacles:
- *  - CELL_TYPES.BURROW: the gnome goes back to its start square
- *                       (ctx.gnome = moveTo(ctx.gnome, ctx.startGnome)), record a step.
- *  - CELL_TYPES.ROOT:   keep moving the same way, one square at a time, until blocked.
- *  - CELL_TYPES.RAKE:   push the gnome 2 squares opposite to where it came from (one at a time).
+ * Move the gnome by exactly one square, forward or backward (it keeps looking
+ * the same way), then apply the effect of the square it arrives on.
  * @param {RunContext} ctx
  * @param {CardInstance} card
- * @param {'forward'|'back'} way How the gnome arrived (needed for ROOT and RAKE).
+ * @param {'forward'|'back'} way
+ * @returns {boolean} true if the gnome moved (false if it was blocked).
+ */
+export function moveOneSquare(ctx, card, way) {
+  const travel = way === 'forward' ? ctx.gnome.direction : rotateDirection(ctx.gnome.direction, 2);
+  const moved = stepGnome(ctx, card, travel, STEP_EVENTS.MOVED);
+  if (moved) applySquareEffect(ctx, card, travel);
+  return moved;
+}
+
+/**
+ * Effect of the square the gnome just arrived on. Effects can chain (a rake
+ * can push the gnome onto a mushroom...): the loop goes on as long as the
+ * gnome lands on a special square AND actually moved, and MAX_STEPS stops
+ * any endless chain.
+ *
+ *  - MUSHROOM: one more square in the direction of travel.
+ *  - BURROW:   back to the start square (keeps looking the same way).
+ *  - ROOT:     slides straight in the direction of travel until blocked.
+ *  - RAKE:     pushed back 2 squares, opposite to the direction of travel.
+ *
+ * @param {RunContext} ctx
+ * @param {CardInstance} card
+ * @param {'N'|'E'|'S'|'W'} travel Direction the gnome was moving when it arrived.
  * @returns {void}
  */
-export function applySquareEffect(ctx, card, way) {
-  const type = ctx.board.getCell(ctx.gnome.x, ctx.gnome.y);
-  switch (type) {
-    // case CELL_TYPES.BURROW: ...
-    // case CELL_TYPES.ROOT: ...
-    // case CELL_TYPES.RAKE: ...
-    case CELL_TYPES.EMPTY:
-    default:
-      // No effect in this version.
+export function applySquareEffect(ctx, card, travel) {
+  let direction = travel;
+
+  while (!shouldStop(ctx)) {
+    const type = ctx.board.getCell(ctx.gnome.x, ctx.gnome.y);
+    let moved = false;
+
+    switch (type) {
+      case CELL_TYPES.MUSHROOM:
+        moved = stepGnome(ctx, card, direction, STEP_EVENTS.MUSHROOM);
+        break;
+
+      case CELL_TYPES.BURROW:
+        ctx.gnome = moveTo(ctx.gnome, ctx.startGnome);
+        recordStep(ctx, card.uid, STEP_EVENTS.BURROW);
+        return; // the start square has no effect
+
+      case CELL_TYPES.ROOT:
+        // Slide until the next square blocks; the end of a slide is not a "blocked".
+        while (!shouldStop(ctx) && stepGnome(ctx, card, direction, STEP_EVENTS.SLID, { recordBlocked: false })) {
+          moved = true;
+        }
+        break;
+
+      case CELL_TYPES.RAKE: {
+        const back = rotateDirection(direction, 2);
+        for (let i = 0; i < 2 && !shouldStop(ctx); i++) {
+          if (!stepGnome(ctx, card, back, STEP_EVENTS.PUSHED, { recordBlocked: false })) break;
+          moved = true;
+        }
+        direction = back; // the gnome now travels the other way
+        break;
+      }
+
+      default:
+        return; // empty, start, treasure: no effect
+    }
+
+    if (!moved) return;
   }
 }
 

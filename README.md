@@ -10,11 +10,29 @@ Le même que dans les règles du jeu physique, partout dans le code et l'interfa
 
 - un gnome est **blocked** quand il ne peut pas avancer ;
 - un **obstacle** est une case qui bloque le gnome (un rocher dans le simulateur) ;
-- le **treasure** est la case d'arrivée, au centre du plateau.
+- le **treasure** est la zone d'arrivée (2 × 2 cases) au centre du plateau.
+
+## Le plateau
+
+Le simulateur utilise le plateau imprimé du jeu (`assets/img/board.png`) : 14 colonnes × 13 lignes. Les cases cliquables sont posées exactement sur la grille de l'image. Les éléments imprimés ont un effet quand le gnome arrive dessus :
+
+| Case | Effet |
+|---|---|
+| Empreintes (4 coins) | cases de départ : le gnome part forcément de l'une d'elles |
+| Treasure (2 × 2 au centre) | victoire, l'algorithme s'arrête |
+| Champignon | le gnome avance d'une case de plus, dans le sens où il allait |
+| Terrier | le gnome retourne à sa case de départ |
+| Racine (2 cases) | le gnome glisse tout droit jusqu'à être bloqué |
+| Râteau | le gnome est repoussé de 2 cases, dans le sens opposé à son arrivée |
+| Rocher (ajouté par le joueur) | obstacle : le gnome est blocked |
+
+Les effets peuvent s'enchaîner (un râteau qui repousse sur un champignon…). Une chaîne sans fin est arrêtée par la limite d'étapes. La fin d'une glissade ou d'une poussée contre un obstacle ne compte pas comme « blocked ».
+
+Les positions de tous les éléments sont dans `BOARD_LAYOUT` (`js/config.js`), et la position de la grille dans l'image dans `BOARD_IMAGE`. Si l'équipe change le plateau, il suffit de remplacer l'image et de mettre à jour ces deux objets.
 
 ## Utilisation
 
-1. **Place gnome** : toucher une case pour y poser le gnome. **Direction** : choisir N / E / S / W, ou toucher le gnome pour le faire tourner vers sa droite. **Obstacles** : toucher une case pour poser ou retirer un rocher.
+1. **Place gnome** : toucher une des 4 empreintes (surlignées en jaune) pour y poser le gnome. **Direction** : choisir N / E / S / W, ou toucher le gnome pour le faire tourner vers sa droite. **Obstacles** : toucher une case vide pour poser ou retirer un rocher.
 2. Toucher une carte de la palette pour l'ajouter à l'algorithme. L'algorithme se lit de haut en bas ; les cartes contenues dans un Repeat, un If ou un Else sont à sa droite.
    - Un Repeat, un If ou un Else qu'on vient de poser reçoit les cartes suivantes. Toucher un de ces conteneurs pour le sélectionner, ou **Back to main level** pour revenir au niveau principal.
    - Un If et un Else contiennent une seule carte.
@@ -47,7 +65,7 @@ npm test
 
 Le script lance `node --test "tests/*.test.js"`. (`node --test tests/`, avec un dossier, ne fonctionne plus depuis Node 21.)
 
-Les tests portent sur `js/logic/`, qui ne touche jamais au DOM : plateau (y compris d'une autre taille que 11), gnome, interpréteur (déplacements, blocages, Repeat imbriqués, If / Else, trésor, limite d'étapes) et limite de 8 cartes.
+Les tests portent sur `js/logic/`, qui ne touche jamais au DOM : plateau imprimé et plateaux d'autres tailles, gnome, interpréteur (déplacements, blocages, Repeat imbriqués, If / Else, trésor, limite d'étapes, effets des cases spéciales) et limite de 8 cartes. La plupart utilisent un plateau simple de 11 × 11 (`tests/helpers/layouts.js`) pour que les cases imprimées ne gênent pas.
 
 ## Déployer sur GitLab Pages
 
@@ -77,37 +95,38 @@ Sur GitHub Pages, aucun fichier n'est nécessaire : *Settings > Pages > Deploy f
 ├── package.json        "type": "module" + script de test, aucune dépendance
 ├── css/
 │   ├── base.css        Charte graphique (variables), reset, mise en page mobile first, boutons
-│   ├── board.css       Grille (colonnes = BOARD_SIZE), cases, gnome, effets d'animation
+│   ├── board.css       Image du plateau, grille cliquable posée dessus, gnome, effets
 │   └── cards.css       Cartes (palette et algorithme), couleurs par famille, cartes à droite
 ├── js/
 │   ├── main.js         Point d'entrée : état de l'appli, création des vues, branchements
-│   ├── config.js       Toutes les constantes (BOARD_SIZE, trésor, 8 cartes, étapes, vitesse…)
+│   ├── config.js       Toutes les constantes (BOARD_LAYOUT, BOARD_IMAGE, 8 cartes, étapes, vitesse…)
 │   ├── i18n.js         Tous les textes de l'interface, dont le nom et le texte de chaque carte
 │   ├── logic/          LOGIQUE PURE : jamais de DOM, testable avec Node
-│   │   ├── board.js        Plateau : cases, obstacles, bord, blocage
+│   │   ├── board.js        Plateau : cases imprimées, rochers, bord, blocage, départs
 │   │   ├── gnome.js        Gnome : position, direction, rotations, case devant/derrière
 │   │   ├── cards.js        Catalogue des cartes + création d'instances
 │   │   ├── program.js      Algorithme en arbre : ajout, suppression, règles du Else, limite de 8
-│   │   └── interpreter.js  Exécution : renvoie la liste des étapes, sans animation
+│   │   └── interpreter.js  Exécution et effets des cases : renvoie la liste des étapes
 │   └── ui/             AFFICHAGE : lit la logique, ne la modifie jamais
-│       ├── boardView.js    Dessin du jardin, toucher sur une case
+│       ├── boardView.js    Image du plateau + cases cliquables, gnome, rochers
 │       ├── paletteView.js  Palette (nom + texte des cartes) + filtre par niveau
 │       ├── programView.js  Algorithme, compteur, conteneur sélectionné, surlignage
 │       ├── controls.js     Modes de la barre d'outils + boutons
 │       └── animator.js     Lecture des étapes (auto / pas à pas) + message final
 ├── assets/
 │   ├── img/logo_gnomads.png  Logo fourni par l'équipe
+│   ├── img/board.png         Plateau imprimé fourni par l'équipe
 │   └── icons/          Icônes SVG aux couleurs de la charte (gnome, rocher, trésor)
-└── tests/              Tests node:test
+└── tests/              Tests node:test (+ helpers/layouts.js : petits plateaux de test)
 ```
 
 ### Principes
 
 - **Logique et affichage séparés.** `js/logic/` n'utilise ni `document` ni `window`. `js/ui/` affiche et transmet les actions de l'utilisateur à `main.js`, qui met à jour la logique puis redessine.
-- **Taille du plateau dans une seule constante.** `BOARD_SIZE` (`config.js`) donne la grille, le trésor (case centrale calculée), le nombre de colonnes CSS et la position de départ du gnome.
+- **Plateau décrit dans un seul objet.** `BOARD_LAYOUT` (`config.js`) donne la taille, le trésor, les départs et les cases spéciales ; la grille, les colonnes CSS et la position du gnome en découlent.
 - **L'interpréteur ne fait pas d'animation.** `runProgram()` calcule toutes les étapes d'un coup (`{ gnome, cardUid, event }`). `animator.js` les rejoue avec `ANIMATION_DELAY_MS` entre chaque.
-- **Charte graphique** : uniquement les 8 couleurs de `css/base.css` et le blanc ; textes en noir.
-- **Obstacles futurs** (burrow, root, rake) : les types existent dans `CELL_TYPES` (`config.js`), leurs styles dans `board.css`, et leur effet se code dans `applySquareEffect()` (`interpreter.js`). Pour qu'un obstacle bloque le gnome, l'ajouter à `BLOCKING_TYPES` (`board.js`).
+- **Charte graphique** : uniquement les 8 couleurs de `css/base.css` et le blanc ; textes en noir (les images fournies par l'équipe ont leurs propres couleurs).
+- **Cases spéciales** : types dans `CELL_TYPES` (`config.js`), effets dans `applySquareEffect()` (`interpreter.js`). Pour qu'un type bloque le gnome, l'ajouter à `BLOCKING_TYPES` (`board.js`).
 
 ### Ajouter une carte
 

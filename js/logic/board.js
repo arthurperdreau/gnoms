@@ -1,57 +1,70 @@
 /**
  * @file board.js
- * Board model: a square grid of square types. Pure logic, no DOM.
+ * Board model: a grid of square types built from a BoardLayout
+ * (the printed Gnomads board by default). Pure logic, no DOM.
  *
- * Coordinates: x from 0 to size - 1 (left to right),
- *              y from 0 to size - 1 (top to bottom).
+ * Coordinates: x from 0 to width - 1 (left to right),
+ *              y from 0 to height - 1 (top to bottom).
  * Storage: `cells[y][x]` holds a value of CELL_TYPES.
+ *
+ * The squares printed on the board (start, treasure, mushroom, burrow, root,
+ * rake) are fixed. The player can only add or remove rocks (OBSTACLE) on
+ * empty squares.
  */
 
-import { BOARD_SIZE, CELL_TYPES, getTreasurePosition } from '../config.js';
+import { BOARD_LAYOUT, CELL_TYPES } from '../config.js';
 
 /**
  * Square types that block the gnome. The board edge also blocks it
- * (see `isBlocking`). Add future blocking obstacles here.
+ * (see `isBlocking`).
  */
 export const BLOCKING_TYPES = Object.freeze(new Set([CELL_TYPES.OBSTACLE]));
 
-/** All valid square type values, for validation. */
-const VALID_TYPES = new Set(Object.values(CELL_TYPES));
-
 export class Board {
   /**
-   * Create an empty board with the treasure on its center square.
-   * @param {number} [size=BOARD_SIZE] Width and height of the grid.
+   * Create a board from a layout.
+   * @param {import('../config.js').BoardLayout} [layout=BOARD_LAYOUT]
    */
-  constructor(size = BOARD_SIZE) {
+  constructor(layout = BOARD_LAYOUT) {
+    /** @type {import('../config.js').BoardLayout} */
+    this.layout = layout;
     /** @type {number} */
-    this.size = size;
-    /** @type {{x: number, y: number}} Center square, computed from the size. */
-    this.treasure = getTreasurePosition(size);
+    this.width = layout.width;
+    /** @type {number} */
+    this.height = layout.height;
     /** @type {string[][]} cells[y][x] */
     this.cells = [];
     this.reset();
   }
 
   /**
-   * Fill the whole grid with CELL_TYPES.EMPTY, then put the treasure on the
-   * center square. Removes every obstacle.
+   * Rebuild the grid from the layout: printed squares only, no rock.
    * @returns {void}
    */
   reset() {
-    this.cells = Array.from({ length: this.size }, () => Array(this.size).fill(CELL_TYPES.EMPTY));
-    this.cells[this.treasure.y][this.treasure.x] = CELL_TYPES.TREASURE;
+    const { width, height, treasure, starts, squares = {} } = this.layout;
+    this.cells = Array.from({ length: height }, () => Array(width).fill(CELL_TYPES.EMPTY));
+
+    for (let y = treasure.y; y < treasure.y + treasure.height; y++) {
+      for (let x = treasure.x; x < treasure.x + treasure.width; x++) {
+        this.cells[y][x] = CELL_TYPES.TREASURE;
+      }
+    }
+    for (const [x, y] of starts) this.cells[y][x] = CELL_TYPES.START;
+    for (const [type, positions] of Object.entries(squares)) {
+      for (const [x, y] of positions) this.cells[y][x] = type;
+    }
   }
 
   /**
    * Check if a position is inside the board.
    * @param {number} x
    * @param {number} y
-   * @returns {boolean} true if 0 <= x < size and 0 <= y < size.
+   * @returns {boolean}
    */
   isInside(x, y) {
     return Number.isInteger(x) && Number.isInteger(y)
-      && x >= 0 && y >= 0 && x < this.size && y < this.size;
+      && x >= 0 && y >= 0 && x < this.width && y < this.height;
   }
 
   /**
@@ -65,22 +78,7 @@ export class Board {
   }
 
   /**
-   * Low-level setter used by placeObstacle/removeObstacle (and later by other
-   * obstacles). The treasure square can never be changed.
-   * @param {number} x
-   * @param {number} y
-   * @param {string} type A CELL_TYPES value.
-   * @returns {boolean} true if the square was changed.
-   */
-  setCell(x, y, type) {
-    if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
-    if (!VALID_TYPES.has(type) || type === CELL_TYPES.TREASURE) return false;
-    this.cells[y][x] = type;
-    return true;
-  }
-
-  /**
-   * Check if a square is the treasure.
+   * Check if a square is part of the treasure zone.
    * @param {number} x
    * @param {number} y
    * @returns {boolean}
@@ -90,45 +88,56 @@ export class Board {
   }
 
   /**
-   * Check if an obstacle can be placed on a square.
-   * Forbidden on the treasure, on the gnome's square and outside the board.
+   * Check if a square is a start square (footprints).
    * @param {number} x
    * @param {number} y
-   * @param {{x: number, y: number}} [gnomePosition] Current gnome position, if any.
+   * @returns {boolean}
+   */
+  isStart(x, y) {
+    return this.getCell(x, y) === CELL_TYPES.START;
+  }
+
+  /**
+   * Check if a rock can be placed on a square: only on an empty square
+   * (never on a printed square), and not under the gnome.
+   * @param {number} x
+   * @param {number} y
+   * @param {{x: number, y: number}} [gnomePosition]
    * @returns {boolean}
    */
   canPlaceObstacle(x, y, gnomePosition) {
-    if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
+    if (this.getCell(x, y) !== CELL_TYPES.EMPTY) return false;
     if (gnomePosition && gnomePosition.x === x && gnomePosition.y === y) return false;
     return true;
   }
 
   /**
-   * Place an obstacle on a square if allowed.
+   * Place a rock on a square if allowed.
    * @param {number} x
    * @param {number} y
    * @param {{x: number, y: number}} [gnomePosition]
-   * @returns {boolean} true if the obstacle was placed.
+   * @returns {boolean} true if the rock was placed.
    */
   placeObstacle(x, y, gnomePosition) {
     if (!this.canPlaceObstacle(x, y, gnomePosition)) return false;
-    return this.setCell(x, y, CELL_TYPES.OBSTACLE);
+    this.cells[y][x] = CELL_TYPES.OBSTACLE;
+    return true;
   }
 
   /**
-   * Remove an obstacle (the square becomes empty). Does nothing on other types.
+   * Remove a rock (the square becomes empty). Does nothing on other types.
    * @param {number} x
    * @param {number} y
-   * @returns {boolean} true if an obstacle was removed.
+   * @returns {boolean} true if a rock was removed.
    */
   removeObstacle(x, y) {
     if (this.getCell(x, y) !== CELL_TYPES.OBSTACLE) return false;
-    return this.setCell(x, y, CELL_TYPES.EMPTY);
+    this.cells[y][x] = CELL_TYPES.EMPTY;
+    return true;
   }
 
   /**
-   * Toggle an obstacle: remove it if present, otherwise try to place it.
-   * Used by the "obstacle" mode of the toolbar.
+   * Toggle a rock: remove it if present, otherwise try to place it.
    * @param {number} x
    * @param {number} y
    * @param {{x: number, y: number}} [gnomePosition]
@@ -140,7 +149,7 @@ export class Board {
   }
 
   /**
-   * Remove every obstacle but keep the treasure.
+   * Remove every rock. Printed squares stay.
    * @returns {void}
    */
   clearObstacles() {
@@ -155,7 +164,7 @@ export class Board {
    * Check if a square blocks the gnome. The board edge blocks it too.
    * @param {number} x
    * @param {number} y
-   * @returns {boolean} true if outside the board or the type is in BLOCKING_TYPES.
+   * @returns {boolean}
    */
   isBlocking(x, y) {
     if (!this.isInside(x, y)) return true;
@@ -163,13 +172,13 @@ export class Board {
   }
 
   /**
-   * Check if the gnome may stand on a square (used when placing the gnome).
+   * Check if the gnome may start on a square: only on the footprints.
    * @param {number} x
    * @param {number} y
-   * @returns {boolean} true if inside, not blocking and not the treasure.
+   * @returns {boolean}
    */
   canPlaceGnome(x, y) {
-    return this.isInside(x, y) && !this.isBlocking(x, y) && !this.isTreasure(x, y);
+    return this.isStart(x, y);
   }
 
   /**
@@ -177,7 +186,7 @@ export class Board {
    * @returns {Board}
    */
   clone() {
-    const copy = new Board(this.size);
+    const copy = new Board(this.layout);
     copy.cells = this.cells.map((row) => row.slice());
     return copy;
   }

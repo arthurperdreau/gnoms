@@ -29,7 +29,6 @@
   --radius-small: 12px;
   --border: 2px solid var(--color-black);
   --tap-size: 44px;          /* minimum touch target */
-  --board-max-width: 560px;
   --font-body: "Nunito", ui-rounded, "Arial Rounded MT Bold", "Varela Round", system-ui, sans-serif;
 }
 
@@ -103,7 +102,7 @@ button { font: inherit; color: inherit; }
   padding: 14px;
   min-width: 0;
 }
-.panel--board { padding: 10px; }
+.panel--board { padding: 8px; }
 
 .panel__header {
   display: flex;

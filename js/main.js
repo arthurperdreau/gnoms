@@ -8,7 +8,7 @@
  * logic objects themselves.
  */
 
-import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS, STEP_EVENTS } from './config.js';
+import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS, STEP_EVENTS, BOARD_IMAGE } from './config.js';
 import { TEXTS } from './i18n.js';
 import { Board } from './logic/board.js';
 import { createGnome, cloneGnome, rotateDirection, samePosition } from './logic/gnome.js';
@@ -104,8 +104,8 @@ function invalidateRun() {
 
 /**
  * A garden square was tapped. Behaviour depends on state.mode:
- *  - GNOME: the start gnome moves there (same direction).
- *  - OBSTACLE: put or remove a rock.
+ *  - GNOME: the start gnome moves there, only on a footprints square (same direction).
+ *  - OBSTACLE: put or remove a rock (empty squares only).
  *  - DIRECTION: tapping the gnome turns it to its right.
  * @param {number} x
  * @param {number} y
@@ -325,7 +325,12 @@ function onPlayingChange(isPlaying) {
 function init() {
   applyStaticTexts();
 
-  views.board = new BoardView(document.getElementById('board'), { onCellTap }, state.board.size);
+  views.board = new BoardView(
+    document.getElementById('board'),
+    document.getElementById('board-frame'),
+    { onCellTap },
+    { width: state.board.width, height: state.board.height, image: BOARD_IMAGE, treasure: state.board.layout.treasure },
+  );
   views.palette = new PaletteView(
     document.getElementById('palette'),
     document.getElementById('level-filter'),
