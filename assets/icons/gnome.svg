@@ -1,11 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gnome seen from above, facing up">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gnome seen from above, looking up">
   <!-- Direction marker: arrow pointing up (North). The UI rotates the whole icon. -->
-  <path d="M32 2 L42 14 L22 14 Z" fill="#ffffff" stroke="#2b2b24" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M32 1 L43 13 L21 13 Z" fill="#000000"/>
   <!-- Shoulders / body -->
-  <ellipse cx="32" cy="38" rx="20" ry="16" fill="#2f6fd6" stroke="#2b2b24" stroke-width="2"/>
-  <!-- Beard (in front = toward the arrow) -->
-  <path d="M20 30 Q32 14 44 30 Q32 26 20 30 Z" fill="#f4f1ea" stroke="#2b2b24" stroke-width="2" stroke-linejoin="round"/>
-  <!-- Pointy hat seen from above -->
-  <circle cx="32" cy="38" r="12" fill="#d9363e" stroke="#2b2b24" stroke-width="2"/>
-  <circle cx="32" cy="34" r="3" fill="#a8232a"/>
+  <ellipse cx="32" cy="40" rx="20" ry="15" fill="#73b6e5" stroke="#000000" stroke-width="2.5"/>
+  <!-- Beard, in front (toward the arrow) -->
+  <path d="M19 31 Q32 13 45 31 Q32 26 19 31 Z" fill="#ffffff" stroke="#000000" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Mushroom hat seen from above -->
+  <circle cx="32" cy="38" r="13" fill="#ef7d5d" stroke="#000000" stroke-width="2.5"/>
+  <circle cx="27" cy="34" r="2.6" fill="#ffffff"/>
+  <circle cx="37" cy="36" r="2" fill="#ffffff"/>
+  <circle cx="30" cy="43" r="2.2" fill="#ffffff"/>
+  <circle cx="38" cy="43" r="1.6" fill="#ffffff"/>
 </svg>

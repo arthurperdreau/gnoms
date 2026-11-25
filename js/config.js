@@ -6,14 +6,27 @@
  * Change a value here instead of hard-coding it elsewhere.
  */
 
-/** Width and height of the square board (cells). */
+/**
+ * Width and height of the square board, in squares.
+ * Not decided yet by the team: every other file derives the size from here.
+ */
 export const BOARD_SIZE = 11;
 
-/** Fixed position of the treasure (center of the board). */
-export const TREASURE_POSITION = Object.freeze({ x: 5, y: 5 });
+/**
+ * Center square of a board of a given size (the treasure).
+ * @param {number} size
+ * @returns {{x: number, y: number}}
+ */
+export function getTreasurePosition(size) {
+  const center = Math.floor(size / 2);
+  return { x: center, y: center };
+}
+
+/** Fixed position of the treasure on the default board. */
+export const TREASURE_POSITION = Object.freeze(getTreasurePosition(BOARD_SIZE));
 
 /**
- * Directions of the gnome and the vector to move one cell forward.
+ * Directions of the gnome and the vector to move one square forward.
  * y grows downward, so North is dy = -1.
  * @type {Readonly<Record<'N'|'E'|'S'|'W', {dx: number, dy: number}>>}
  */
@@ -25,30 +38,30 @@ export const DIRECTIONS = Object.freeze({
 });
 
 /**
- * Directions in clockwise order. Turning right = next index,
+ * Directions in clockwise order. Turning right (the gnome's right) = next index,
  * turning left = previous index, U-turn = index + 2 (modulo 4).
  */
 export const DIRECTION_ORDER = Object.freeze(['N', 'E', 'S', 'W']);
 
 /**
- * Cell types. Only EMPTY, WALL and TREASURE are used in this first version.
+ * Square types. Only EMPTY, OBSTACLE and TREASURE are used in this version.
  * BURROW, ROOT and RAKE are reserved for the obstacles of the physical game:
- * their effect will be handled in `applyCellEffect()` in js/logic/interpreter.js.
+ * their effect will be handled in `applySquareEffect()` in js/logic/interpreter.js.
  */
 export const CELL_TYPES = Object.freeze({
   EMPTY: 'empty',
-  WALL: 'wall',
+  OBSTACLE: 'obstacle', // shown as a rock; blocks the gnome
   TREASURE: 'treasure',
   // --- Future obstacles (not implemented yet) ---
-  BURROW: 'burrow', // sends the gnome back to its start cell
-  ROOT: 'root',     // the gnome slides straight until the next obstacle
-  RAKE: 'rake',     // pushes the gnome 2 cells back, opposite to its arrival
+  BURROW: 'burrow', // the gnome goes back to its start square
+  ROOT: 'root',     // the gnome slides straight until it is blocked
+  RAKE: 'rake',     // the gnome is pushed 2 squares back, opposite to where it came from
 });
 
-/** Maximum number of cards in one algorithm, nested cards included. */
-export const MAX_CARDS = 5;
+/** Maximum number of cards in one algorithm (a hand in the physical game), contained cards included. */
+export const MAX_CARDS = 8;
 
-/** Safety limit: the interpreter stops after this many steps (infinite / too long loops). */
+/** Safety limit: the interpreter stops after this many steps (loops that are too long). */
 export const MAX_STEPS = 200;
 
 /** Delay between two animation steps, in milliseconds. */
@@ -63,7 +76,7 @@ export const LEVELS = Object.freeze({
 
 /** Card families (used for colours and for the interpreter dispatch). */
 export const CARD_FAMILIES = Object.freeze({
-  MOVE: 'move',
+  MOVEMENT: 'movement',
   LOOP: 'loop',
   CONDITION: 'condition',
 });
@@ -74,7 +87,7 @@ export const STEP_EVENTS = Object.freeze({
   MOVED: 'moved',
   BLOCKED: 'blocked',
   TURNED: 'turned',
-  CHECKED: 'checked',   // a condition was evaluated (no movement)
+  CHECKED: 'checked',   // an If card was evaluated (no movement)
   TREASURE: 'treasure',
 });
 
@@ -88,9 +101,9 @@ export const RUN_STATUS = Object.freeze({
 /** Edit modes of the toolbar. */
 export const TOOL_MODES = Object.freeze({
   GNOME: 'gnome',
-  WALL: 'wall',
+  OBSTACLE: 'obstacle',
   DIRECTION: 'direction',
 });
 
-/** Default gnome when the page loads. */
-export const DEFAULT_GNOME = Object.freeze({ x: 0, y: 10, direction: 'N' });
+/** Default gnome when the page loads: bottom-left square, looking North. */
+export const DEFAULT_GNOME = Object.freeze({ x: 0, y: BOARD_SIZE - 1, direction: 'N' });

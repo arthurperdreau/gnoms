@@ -1,15 +1,14 @@
 /**
  * @file programView.js
- * Displays the algorithm tree with indentation, the selected container,
- * the "used / max" card counter, delete buttons and the highlight of the
- * card being executed.
+ * Displays the algorithm like on the table in the physical game: cards are
+ * read from top to bottom, and the cards contained in a Repeat, an If or an
+ * Else are on the same line, on the right of that card.
+ * Also shows the selected container, the "used / max" counter, delete
+ * buttons and the highlight of the card being executed.
  */
 
 import { TEXTS } from '../i18n.js';
 import { getCardDefinition, isContainer } from '../logic/cards.js';
-
-/** Slots whose name is displayed as a label (If cards). */
-const LABELLED_SLOTS = Object.freeze({ then: 'slotThen', else: 'slotElse' });
 
 export class ProgramView {
   /**
@@ -45,9 +44,9 @@ export class ProgramView {
         return;
       }
 
-      const card = target.closest('.card[data-uid]');
-      if (card && card.dataset.container === 'true') {
-        this.callbacks.onSelectContainer(card.dataset.uid);
+      const select = target.closest('.program__select');
+      if (select && select.dataset.container === 'true') {
+        this.callbacks.onSelectContainer(select.dataset.uid);
       }
     });
 
@@ -57,7 +56,7 @@ export class ProgramView {
   }
 
   /**
-   * Full render of the tree.
+   * Full render of the algorithm.
    * @param {import('../logic/program.js').Program} program
    * @param {string|null} targetUid Selected container (null = main level).
    * @returns {void}
@@ -72,7 +71,14 @@ export class ProgramView {
   }
 
   /**
-   * Build the <li> of one card, recursively for its children.
+   * Build the line of one card, with the cards it contains on its right.
+   * <li class="program__item">
+   *   <div class="card card--<family> program__card [card--selected]">
+   *     <button class="program__select">name</button>
+   *     <button class="program__delete">×</button>
+   *   </div>
+   *   <ol class="program__children">...</ol>   (containers only)
+   * </li>
    * @param {import('../logic/cards.js').CardInstance} card
    * @param {string|null} targetUid
    * @returns {HTMLLIElement}
@@ -80,70 +86,51 @@ export class ProgramView {
   createItem(card, targetUid) {
     const def = getCardDefinition(card.cardId);
     const container = isContainer(card.cardId);
+    const selected = container && card.uid === targetUid;
 
     const item = document.createElement('li');
-    item.className = 'program__item';
+    item.className = `program__item${container ? '' : ' program__item--simple'}`;
 
-    // --- Row: card + delete button ---
-    const row = document.createElement('div');
-    row.className = 'program__row';
-
-    const cardElement = document.createElement('button');
-    cardElement.type = 'button';
-    cardElement.className = `card card--${def.family}`;
-    cardElement.dataset.uid = card.uid;
-    cardElement.dataset.container = String(container);
-    if (container) {
-      const selected = card.uid === targetUid;
-      cardElement.classList.toggle('card--selected', selected);
-      cardElement.setAttribute('aria-pressed', String(selected));
-    } else {
-      cardElement.tabIndex = -1; // simple cards are not interactive
-      cardElement.style.cursor = 'default';
-    }
-    const label = document.createElement('span');
-    label.className = 'card__label';
-    label.textContent = TEXTS.cards[card.cardId];
-    cardElement.append(label);
+    const cardElement = document.createElement('div');
+    cardElement.className = `card card--${def.family} program__card`;
+    cardElement.classList.toggle('card--selected', selected);
     this.cardElements.set(card.uid, cardElement);
+
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'program__select';
+    select.dataset.uid = card.uid;
+    select.dataset.container = String(container);
+    select.textContent = def.name;
+    select.title = def.text;
+    if (container) {
+      select.setAttribute('aria-pressed', String(selected));
+    } else {
+      select.tabIndex = -1; // simple cards cannot be selected
+    }
 
     const deleteButton = document.createElement('button');
     deleteButton.type = 'button';
     deleteButton.className = 'program__delete';
     deleteButton.dataset.uid = card.uid;
-    deleteButton.setAttribute('aria-label', `${TEXTS.deleteCard}: ${TEXTS.cards[card.cardId]}`);
+    deleteButton.setAttribute('aria-label', `${TEXTS.deleteCard}: ${def.name}`);
     deleteButton.textContent = '×';
 
-    row.append(cardElement, deleteButton);
-    item.append(row);
+    cardElement.append(select, deleteButton);
+    item.append(cardElement);
 
-    // --- Children, one block per slot ---
-    if (card.slots) {
-      const childrenWrapper = document.createElement('div');
-      childrenWrapper.className = `program__children program__children--${def.family}`;
-
-      for (const [slotName, children] of Object.entries(card.slots)) {
-        const labelKey = LABELLED_SLOTS[slotName];
-        if (labelKey && def.action === 'if') {
-          const slotLabel = document.createElement('span');
-          slotLabel.className = 'program__slot-label';
-          slotLabel.textContent = TEXTS[labelKey];
-          childrenWrapper.append(slotLabel);
-        }
-
-        if (children.length === 0) {
-          const empty = document.createElement('span');
-          empty.className = 'program__slot-empty';
-          empty.textContent = TEXTS.slotEmpty;
-          childrenWrapper.append(empty);
-        } else {
-          const list = document.createElement('ol');
-          list.className = 'program__children-list';
-          list.append(...children.map((child) => this.createItem(child, targetUid)));
-          childrenWrapper.append(list);
-        }
+    if (container) {
+      const children = document.createElement('ol');
+      children.className = 'program__children';
+      if (card.children.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'program__slot-empty';
+        empty.textContent = TEXTS.slotEmpty;
+        children.append(empty);
+      } else {
+        children.append(...card.children.map((child) => this.createItem(child, targetUid)));
       }
-      item.append(childrenWrapper);
+      item.append(children);
     }
 
     return item;
@@ -169,7 +156,7 @@ export class ProgramView {
   renderTarget(program, targetUid) {
     const location = targetUid ? program.findCard(targetUid) : null;
     this.elements.targetLabel.textContent = location
-      ? TEXTS.targetContainer(TEXTS.cards[location.card.cardId])
+      ? TEXTS.targetContainer(getCardDefinition(location.card.cardId).name)
       : TEXTS.targetMain;
     this.elements.rootButton.hidden = !location;
   }
@@ -189,7 +176,7 @@ export class ProgramView {
     element.classList.remove('card--current');
     void element.offsetWidth; // restart the pulse when the same card runs again
     element.classList.add('card--current');
-    element.scrollIntoView({ block: 'nearest' });
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   /**

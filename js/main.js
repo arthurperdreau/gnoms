@@ -13,7 +13,7 @@ import { TEXTS } from './i18n.js';
 import { Board } from './logic/board.js';
 import { createGnome, cloneGnome, rotateDirection, samePosition } from './logic/gnome.js';
 import { Program, PROGRAM_ERRORS } from './logic/program.js';
-import { isContainer } from './logic/cards.js';
+import { isContainer, getCardDefinition } from './logic/cards.js';
 import { runProgram } from './logic/interpreter.js';
 import { BoardView } from './ui/boardView.js';
 import { PaletteView } from './ui/paletteView.js';
@@ -55,7 +55,7 @@ const views = {};
 function programErrorMessage(reason) {
   switch (reason) {
     case PROGRAM_ERRORS.CARD_LIMIT: return TEXTS.msgCardLimit(state.program.maxCards);
-    case PROGRAM_ERRORS.ELSE_OUTSIDE_IF: return TEXTS.msgElseOutsideIf;
+    case PROGRAM_ERRORS.ELSE_WITHOUT_IF: return TEXTS.msgElseWithoutIf;
     case PROGRAM_ERRORS.SLOT_FULL:
     case PROGRAM_ERRORS.NOT_A_CONTAINER: return TEXTS.msgSlotFull;
     default: return reason;
@@ -103,7 +103,10 @@ function invalidateRun() {
 // ---------------------------------------------------------------------------
 
 /**
- * A board cell was tapped. Behaviour depends on state.mode.
+ * A garden square was tapped. Behaviour depends on state.mode:
+ *  - GNOME: the start gnome moves there (same direction).
+ *  - OBSTACLE: put or remove a rock.
+ *  - DIRECTION: tapping the gnome turns it to its right.
  * @param {number} x
  * @param {number} y
  */
@@ -118,15 +121,15 @@ function onCellTap(x, y) {
       state.startGnome = createGnome(x, y, state.startGnome.direction);
       break;
 
-    case TOOL_MODES.WALL:
-      if (!state.board.toggleWall(x, y, state.startGnome)) {
-        views.animator.showMessage(TEXTS.msgCannotPlaceWall, 'warning');
+    case TOOL_MODES.OBSTACLE:
+      if (!state.board.toggleObstacle(x, y, state.startGnome)) {
+        views.animator.showMessage(TEXTS.msgCannotPlaceObstacle, 'warning');
         return;
       }
       break;
 
     case TOOL_MODES.DIRECTION:
-      // Tapping the gnome turns it clockwise; tapping elsewhere does nothing.
+      // Tapping the gnome turns it to its right; tapping elsewhere does nothing.
       if (!samePosition(state.startGnome, { x, y })) return;
       state.startGnome = createGnome(x, y, rotateDirection(state.startGnome.direction, 1));
       break;
@@ -160,7 +163,8 @@ function onDirectionChange(direction) {
 
 /**
  * A palette card was tapped: add it to the algorithm at the current target.
- * A newly added container becomes the target, so the next cards go inside it.
+ * A newly added container becomes the target, so the next cards go on its
+ * right. When an If or an Else is full, the target goes back up one level.
  * @param {string} cardId
  */
 function onPaletteCardTap(cardId) {
@@ -169,10 +173,30 @@ function onPaletteCardTap(cardId) {
     views.animator.showMessage(programErrorMessage(result.reason), 'warning');
     return;
   }
-  if (isContainer(cardId)) state.targetUid = result.card.uid;
+  if (isContainer(cardId)) {
+    state.targetUid = result.card.uid;
+  } else {
+    state.targetUid = firstContainerWithRoom(state.targetUid);
+  }
   views.animator.showMessage('');
   invalidateRun();
   renderAll();
+}
+
+/**
+ * Starting from a container, climb up until a container that can still
+ * receive a card (an If or an Else holds only one card).
+ * @param {string|null} uid
+ * @returns {string|null} Uid of that container, or null for the main level.
+ */
+function firstContainerWithRoom(uid) {
+  let location = state.program.findCard(uid);
+  while (location) {
+    const slot = getCardDefinition(location.card.cardId).slot;
+    if (location.card.children.length < slot.max) return location.card.uid;
+    location = location.parent ? state.program.findCard(location.parent.uid) : null;
+  }
+  return null;
 }
 
 /**
@@ -261,9 +285,9 @@ function onClearProgram() {
   onResetGnome();
 }
 
-/** "Clear walls" button. */
-function onClearWalls() {
-  state.board.clearWalls();
+/** "Clear obstacles" button. */
+function onClearObstacles() {
+  state.board.clearObstacles();
   invalidateRun();
   renderAll();
 }
@@ -301,7 +325,7 @@ function onPlayingChange(isPlaying) {
 function init() {
   applyStaticTexts();
 
-  views.board = new BoardView(document.getElementById('board'), { onCellTap });
+  views.board = new BoardView(document.getElementById('board'), { onCellTap }, state.board.size);
   views.palette = new PaletteView(
     document.getElementById('palette'),
     document.getElementById('level-filter'),
@@ -323,7 +347,7 @@ function init() {
     onStep,
     onResetGnome,
     onClearProgram,
-    onClearWalls,
+    onClearObstacles,
   });
   views.animator = new Animator({
     messageElement: document.getElementById('message'),

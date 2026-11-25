@@ -1,26 +1,25 @@
 /* =========================================================
-   board.css — 11 x 11 grid, cell types, gnome + direction,
+   board.css — garden grid, square types, gnome + direction,
    animation highlights.
+   The number of columns comes from --board-size, set by
+   js/ui/boardView.js from BOARD_SIZE (js/config.js).
    ========================================================= */
 
 .board {
-  --board-size: 11;          /* keep in sync with BOARD_SIZE in js/config.js */
   display: grid;
   grid-template-columns: repeat(var(--board-size), 1fr);
   grid-template-rows: repeat(var(--board-size), 1fr);
-  gap: 2px;
+  gap: 3px;
   width: 100%;
   max-width: var(--board-max-width);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
-  padding: 4px;
-  background: var(--color-soil-dark);
-  border-radius: var(--radius-small);
+  background: var(--color-white);
   user-select: none;
   touch-action: manipulation;
 }
 
-/* ---------- Cells ---------- */
+/* ---------- Squares ---------- */
 .cell {
   position: relative;
   display: grid;
@@ -28,47 +27,41 @@
   min-width: 0;
   padding: 0;
   border: 0;
-  border-radius: 3px;
-  background: var(--color-grass);
+  border-radius: 22%;
+  background: var(--color-green);
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
 }
-/* Light checkerboard so cells are easy to count */
-.cell:nth-child(2n) { background: #82bc67; }
 .cell:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: -3px;
-  z-index: 1;
+  outline: 3px solid var(--color-black);
+  outline-offset: 1px;
+  z-index: 2;
 }
 
-.cell img,
-.cell .cell__icon {
-  width: 80%;
-  height: 80%;
+.cell__icon {
+  width: 82%;
+  height: 82%;
   pointer-events: none;
 }
 
-.cell--wall {
-  background: var(--color-stone) !important;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
-}
+.cell--obstacle { cursor: pointer; }
 
 .cell--treasure {
-  background: #e9d27a !important;
+  background: var(--color-yellow);
   cursor: not-allowed;
 }
 
 /* Future obstacles (structure ready, see CELL_TYPES in config.js) */
-.cell--burrow { background: var(--color-soil) !important; }
-.cell--root   { background: #a67c52 !important; }
-.cell--rake   { background: #b0b0a0 !important; }
+.cell--burrow { background: var(--color-purple); }
+.cell--root   { background: var(--color-blue); }
+.cell--rake   { background: var(--color-coral); }
 
-/* Start cell of the gnome (shown after the gnome moved away) */
+/* Start square of the gnome (shown once the gnome moved away) */
 .cell--start::after {
   content: "";
   position: absolute;
-  inset: 20%;
-  border: 2px dashed rgba(255, 255, 255, 0.8);
+  inset: 22%;
+  border: 2px dashed var(--color-black);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -76,28 +69,41 @@
 /* ---------- Gnome ---------- */
 .gnome {
   position: absolute;
-  inset: 8%;
+  inset: 4%;
   display: grid;
   place-items: center;
   pointer-events: none;
+  z-index: 1;
   transition: transform 0.2s ease;
 }
 .gnome img { width: 100%; height: 100%; }
 
-/* The gnome SVG points North by default: rotate it for the direction */
+/* The gnome icon looks North by default: rotate it for its direction */
 .gnome--N { transform: rotate(0deg); }
 .gnome--E { transform: rotate(90deg); }
 .gnome--S { transform: rotate(180deg); }
 .gnome--W { transform: rotate(270deg); }
 
 /* ---------- Mode hints ---------- */
-.board[data-mode="wall"] .cell:not(.cell--treasure):hover { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6); }
-.board[data-mode="gnome"] .cell:not(.cell--wall):not(.cell--treasure):hover { box-shadow: inset 0 0 0 3px var(--color-gnome-hat); }
+@media (hover: hover) {
+  .board[data-mode="obstacle"] .cell:not(.cell--treasure):hover,
+  .board[data-mode="gnome"] .cell:not(.cell--obstacle):not(.cell--treasure):hover {
+    box-shadow: inset 0 0 0 3px var(--color-black);
+  }
+}
 
 /* ---------- Animation highlights ---------- */
 .board.is-running .cell { cursor: default; }
 
-.cell--trail { box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.18); }
+/* Squares already visited during the run: a small white dot */
+.cell--trail::before {
+  content: "";
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  background: var(--color-white);
+  pointer-events: none;
+}
 
 .cell--blocked { animation: cell-blocked 0.35s ease; }
 @keyframes cell-blocked {
@@ -106,8 +112,8 @@
   75%      { transform: translateX(3px); }
 }
 
-.cell--victory { animation: cell-victory 0.8s ease 2; }
+.cell--victory { animation: cell-victory 0.7s ease 3; }
 @keyframes cell-victory {
-  0%, 100% { box-shadow: inset 0 0 0 0 var(--color-gold); }
-  50%      { box-shadow: inset 0 0 0 6px var(--color-gold); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.25); }
 }

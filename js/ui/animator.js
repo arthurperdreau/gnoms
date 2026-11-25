@@ -144,7 +144,8 @@ export class Animator {
   }
 
   /**
-   * Build and show the final message of a run.
+   * Build and show the final message of a run: treasure found, or final
+ * position and number of times the gnome was blocked.
    * @param {import('../logic/interpreter.js').RunResult} run
    * @returns {void}
    */
@@ -161,8 +162,7 @@ export class Animator {
     }
 
     const { x, y, direction } = run.finalGnome;
-    let text = TEXTS.msgFinished(x, y, TEXTS.directions[direction]);
-    if (run.blockedCount > 0) text += ` ${TEXTS.msgBlocked(run.blockedCount)}`;
+    const text = `${TEXTS.msgFinished(x, y, TEXTS.directions[direction])} ${TEXTS.msgBlocked(run.blockedCount)}`;
     this.showMessage(text, run.blockedCount > 0 ? 'warning' : 'info');
   }
 

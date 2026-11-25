@@ -1,6 +1,7 @@
 /**
  * @file boardView.js
- * Draws the 11 x 11 grid in the DOM and forwards taps on cells.
+ * Draws the garden grid in the DOM and forwards taps on squares.
+ * The grid size comes from the Board (BOARD_SIZE by default).
  * Reads the Board and gnome state but NEVER modifies them.
  */
 
@@ -10,13 +11,13 @@ import { TEXTS } from '../i18n.js';
 /** Paths of the icons, relative to index.html. */
 export const ICONS = Object.freeze({
   gnome: 'assets/icons/gnome.svg',
-  wall: 'assets/icons/wall.svg',
+  obstacle: 'assets/icons/obstacle.svg',
   treasure: 'assets/icons/treasure.svg',
 });
 
 /** Icon shown for each cell type (types without an icon only get a colour). */
 const CELL_ICONS = Object.freeze({
-  [CELL_TYPES.WALL]: ICONS.wall,
+  [CELL_TYPES.OBSTACLE]: ICONS.obstacle,
   [CELL_TYPES.TREASURE]: ICONS.treasure,
 });
 
@@ -30,8 +31,11 @@ export class BoardView {
   /**
    * @param {HTMLElement} rootElement The #board element.
    * @param {{onCellTap: (x: number, y: number) => void}} callbacks
+   * @param {number} [size=BOARD_SIZE] Number of squares per side.
    */
-  constructor(rootElement, callbacks) {
+  constructor(rootElement, callbacks, size = BOARD_SIZE) {
+    /** @type {number} */
+    this.size = size;
     /** @type {HTMLElement} */
     this.root = rootElement;
     this.callbacks = callbacks;
@@ -49,19 +53,19 @@ export class BoardView {
   }
 
   /**
-   * Create the BOARD_SIZE x BOARD_SIZE cell buttons once, and the gnome element.
+   * Create the size x size square buttons once, and the gnome element.
    * @returns {void}
    */
   buildGrid() {
     this.root.replaceChildren();
-    this.root.style.setProperty('--board-size', String(BOARD_SIZE));
+    this.root.style.setProperty('--board-size', String(this.size));
     this.cellElements = [];
     this.iconElements = [];
 
-    for (let y = 0; y < BOARD_SIZE; y++) {
+    for (let y = 0; y < this.size; y++) {
       const cellRow = [];
       const iconRow = [];
-      for (let x = 0; x < BOARD_SIZE; x++) {
+      for (let x = 0; x < this.size; x++) {
         const cell = document.createElement('button');
         cell.type = 'button';
         cell.className = 'cell';
@@ -111,8 +115,8 @@ export class BoardView {
    * @returns {void}
    */
   render(board, gnome, startGnome) {
-    for (let y = 0; y < BOARD_SIZE; y++) {
-      for (let x = 0; x < BOARD_SIZE; x++) {
+    for (let y = 0; y < this.size; y++) {
+      for (let x = 0; x < this.size; x++) {
         this.updateCell(x, y, board.getCell(x, y));
         const isStart = Boolean(startGnome) && startGnome.x === x && startGnome.y === y
           && !(gnome.x === x && gnome.y === y);
@@ -143,8 +147,9 @@ export class BoardView {
       icon.hidden = true;
     }
 
-    const typeLabel = type === CELL_TYPES.EMPTY ? '' : `, ${type}`;
-    cell.setAttribute('aria-label', `x ${x}, y ${y}${typeLabel}`);
+    const typeName = TEXTS.squareTypes[type];
+    const label = TEXTS.squareLabel(x, y);
+    cell.setAttribute('aria-label', typeName ? `${label}, ${typeName}` : label);
   }
 
   /**
@@ -159,7 +164,7 @@ export class BoardView {
     if (this.gnomeElement.parentElement !== cell) cell.append(this.gnomeElement);
 
     this.gnomeElement.className = `gnome gnome--${gnome.direction}`;
-    this.gnomeElement.setAttribute('aria-label', `Gnome facing ${TEXTS.directions[gnome.direction]}`);
+    this.gnomeElement.setAttribute('aria-label', TEXTS.gnomeLabel(TEXTS.directions[gnome.direction]));
     this.gnomeElement.setAttribute('role', 'img');
 
     if (event === STEP_EVENTS.MOVED || event === STEP_EVENTS.TREASURE) {

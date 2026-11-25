@@ -1,46 +1,46 @@
 /**
  * @file board.js
- * Board model: an 11 x 11 grid of cell types. Pure logic, no DOM.
+ * Board model: a square grid of square types. Pure logic, no DOM.
  *
- * Coordinates: x from 0 to BOARD_SIZE - 1 (left to right),
- *              y from 0 to BOARD_SIZE - 1 (top to bottom).
+ * Coordinates: x from 0 to size - 1 (left to right),
+ *              y from 0 to size - 1 (top to bottom).
  * Storage: `cells[y][x]` holds a value of CELL_TYPES.
  */
 
-import { BOARD_SIZE, TREASURE_POSITION, CELL_TYPES } from '../config.js';
+import { BOARD_SIZE, CELL_TYPES, getTreasurePosition } from '../config.js';
 
 /**
- * Cell types that stop the gnome. The board edge is also treated as blocking
+ * Square types that block the gnome. The board edge also blocks it
  * (see `isBlocking`). Add future blocking obstacles here.
  */
-export const BLOCKING_TYPES = Object.freeze(new Set([CELL_TYPES.WALL]));
+export const BLOCKING_TYPES = Object.freeze(new Set([CELL_TYPES.OBSTACLE]));
 
-/** All valid cell type values, for validation. */
+/** All valid square type values, for validation. */
 const VALID_TYPES = new Set(Object.values(CELL_TYPES));
 
 export class Board {
   /**
-   * Create an empty board with the treasure on its fixed cell.
+   * Create an empty board with the treasure on its center square.
    * @param {number} [size=BOARD_SIZE] Width and height of the grid.
    */
   constructor(size = BOARD_SIZE) {
     /** @type {number} */
     this.size = size;
+    /** @type {{x: number, y: number}} Center square, computed from the size. */
+    this.treasure = getTreasurePosition(size);
     /** @type {string[][]} cells[y][x] */
     this.cells = [];
     this.reset();
   }
 
   /**
-   * Fill the whole grid with CELL_TYPES.EMPTY, then put CELL_TYPES.TREASURE
-   * at TREASURE_POSITION. Removes every wall.
+   * Fill the whole grid with CELL_TYPES.EMPTY, then put the treasure on the
+   * center square. Removes every obstacle.
    * @returns {void}
    */
   reset() {
     this.cells = Array.from({ length: this.size }, () => Array(this.size).fill(CELL_TYPES.EMPTY));
-    if (this.isInside(TREASURE_POSITION.x, TREASURE_POSITION.y)) {
-      this.cells[TREASURE_POSITION.y][TREASURE_POSITION.x] = CELL_TYPES.TREASURE;
-    }
+    this.cells[this.treasure.y][this.treasure.x] = CELL_TYPES.TREASURE;
   }
 
   /**
@@ -55,7 +55,7 @@ export class Board {
   }
 
   /**
-   * Read the type of a cell.
+   * Read the type of a square.
    * @param {number} x
    * @param {number} y
    * @returns {string|null} A CELL_TYPES value, or null if outside the board.
@@ -65,12 +65,12 @@ export class Board {
   }
 
   /**
-   * Low-level setter used by placeWall/removeWall (and later by other obstacles).
-   * The treasure cell can never be changed.
+   * Low-level setter used by placeObstacle/removeObstacle (and later by other
+   * obstacles). The treasure square can never be changed.
    * @param {number} x
    * @param {number} y
    * @param {string} type A CELL_TYPES value.
-   * @returns {boolean} true if the cell was changed.
+   * @returns {boolean} true if the square was changed.
    */
   setCell(x, y, type) {
     if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
@@ -80,7 +80,7 @@ export class Board {
   }
 
   /**
-   * Check if a cell is the treasure.
+   * Check if a square is the treasure.
    * @param {number} x
    * @param {number} y
    * @returns {boolean}
@@ -90,69 +90,69 @@ export class Board {
   }
 
   /**
-   * Check if a wall can be placed on a cell.
-   * Forbidden on the treasure, on the gnome's cell and outside the board.
+   * Check if an obstacle can be placed on a square.
+   * Forbidden on the treasure, on the gnome's square and outside the board.
    * @param {number} x
    * @param {number} y
    * @param {{x: number, y: number}} [gnomePosition] Current gnome position, if any.
    * @returns {boolean}
    */
-  canPlaceWall(x, y, gnomePosition) {
+  canPlaceObstacle(x, y, gnomePosition) {
     if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
     if (gnomePosition && gnomePosition.x === x && gnomePosition.y === y) return false;
     return true;
   }
 
   /**
-   * Place a wall on a cell if allowed.
+   * Place an obstacle on a square if allowed.
    * @param {number} x
    * @param {number} y
    * @param {{x: number, y: number}} [gnomePosition]
-   * @returns {boolean} true if the wall was placed.
+   * @returns {boolean} true if the obstacle was placed.
    */
-  placeWall(x, y, gnomePosition) {
-    if (!this.canPlaceWall(x, y, gnomePosition)) return false;
-    return this.setCell(x, y, CELL_TYPES.WALL);
+  placeObstacle(x, y, gnomePosition) {
+    if (!this.canPlaceObstacle(x, y, gnomePosition)) return false;
+    return this.setCell(x, y, CELL_TYPES.OBSTACLE);
   }
 
   /**
-   * Remove a wall (the cell becomes empty). Does nothing on other types.
+   * Remove an obstacle (the square becomes empty). Does nothing on other types.
    * @param {number} x
    * @param {number} y
-   * @returns {boolean} true if a wall was removed.
+   * @returns {boolean} true if an obstacle was removed.
    */
-  removeWall(x, y) {
-    if (this.getCell(x, y) !== CELL_TYPES.WALL) return false;
+  removeObstacle(x, y) {
+    if (this.getCell(x, y) !== CELL_TYPES.OBSTACLE) return false;
     return this.setCell(x, y, CELL_TYPES.EMPTY);
   }
 
   /**
-   * Toggle a wall: remove it if present, otherwise try to place it.
-   * Used by the "wall" mode of the toolbar.
+   * Toggle an obstacle: remove it if present, otherwise try to place it.
+   * Used by the "obstacle" mode of the toolbar.
    * @param {number} x
    * @param {number} y
    * @param {{x: number, y: number}} [gnomePosition]
    * @returns {boolean} true if the board changed.
    */
-  toggleWall(x, y, gnomePosition) {
-    if (this.getCell(x, y) === CELL_TYPES.WALL) return this.removeWall(x, y);
-    return this.placeWall(x, y, gnomePosition);
+  toggleObstacle(x, y, gnomePosition) {
+    if (this.getCell(x, y) === CELL_TYPES.OBSTACLE) return this.removeObstacle(x, y);
+    return this.placeObstacle(x, y, gnomePosition);
   }
 
   /**
-   * Remove every wall but keep the treasure (and other obstacles).
+   * Remove every obstacle but keep the treasure.
    * @returns {void}
    */
-  clearWalls() {
+  clearObstacles() {
     for (const row of this.cells) {
       for (let x = 0; x < row.length; x++) {
-        if (row[x] === CELL_TYPES.WALL) row[x] = CELL_TYPES.EMPTY;
+        if (row[x] === CELL_TYPES.OBSTACLE) row[x] = CELL_TYPES.EMPTY;
       }
     }
   }
 
   /**
-   * Check if a cell stops the gnome. The board edge counts as a wall.
+   * Check if a square blocks the gnome. The board edge blocks it too.
    * @param {number} x
    * @param {number} y
    * @returns {boolean} true if outside the board or the type is in BLOCKING_TYPES.
@@ -163,7 +163,7 @@ export class Board {
   }
 
   /**
-   * Check if the gnome may stand on a cell (used when placing the gnome).
+   * Check if the gnome may stand on a square (used when placing the gnome).
    * @param {number} x
    * @param {number} y
    * @returns {boolean} true if inside, not blocking and not the treasure.

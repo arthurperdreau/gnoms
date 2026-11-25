@@ -1,7 +1,7 @@
 /**
  * @file controls.js
  * Toolbar (edit modes + direction picker) and the Run / Step / Reset gnome /
- * Clear / Clear walls buttons. Only forwards user intentions to main.js.
+ * Clear / Clear obstacles buttons. Only forwards user intentions to main.js.
  */
 
 import { TOOL_MODES } from '../config.js';
@@ -13,7 +13,7 @@ export const BUTTON_IDS = Object.freeze({
   step: 'btn-step',
   reset: 'btn-reset',
   clear: 'btn-clear',
-  clearWalls: 'btn-clear-walls',
+  clearObstacles: 'btn-clear-obstacles',
 });
 
 export class Controls {
@@ -26,7 +26,7 @@ export class Controls {
    *   onStep: () => void,
    *   onResetGnome: () => void,
    *   onClearProgram: () => void,
-   *   onClearWalls: () => void,
+   *   onClearObstacles: () => void,
    * }} callbacks
    */
   constructor(root, callbacks) {
@@ -68,7 +68,7 @@ export class Controls {
     this.buttons.step.addEventListener('click', () => this.callbacks.onStep());
     this.buttons.reset.addEventListener('click', () => this.callbacks.onResetGnome());
     this.buttons.clear.addEventListener('click', () => this.callbacks.onClearProgram());
-    this.buttons.clearWalls.addEventListener('click', () => this.callbacks.onClearWalls());
+    this.buttons.clearObstacles.addEventListener('click', () => this.callbacks.onClearObstacles());
   }
 
   /**
@@ -95,7 +95,7 @@ export class Controls {
   setRunning(running) {
     this.buttons.run.textContent = running ? TEXTS.stop : TEXTS.run;
     this.buttons.clear.disabled = running;
-    this.buttons.clearWalls.disabled = running;
+    this.buttons.clearObstacles.disabled = running;
     for (const button of this.root.querySelectorAll('.btn--mode, .btn--dir')) {
       button.disabled = running;
     }

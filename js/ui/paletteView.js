@@ -85,7 +85,7 @@ export class PaletteView {
   }
 
   /**
-   * Build one palette card.
+   * Build one palette card: its name and the text printed on the physical card.
    * @param {import('../logic/cards.js').CardDefinition} def
    * @param {boolean} enabled
    * @returns {HTMLLIElement}
@@ -98,15 +98,15 @@ export class PaletteView {
     button.dataset.cardId = def.id;
     button.disabled = !enabled;
 
-    const label = document.createElement('span');
-    label.className = 'card__label';
-    label.textContent = TEXTS.cards[def.id];
+    const name = document.createElement('span');
+    name.className = 'card__name';
+    name.textContent = def.name;
 
-    const level = document.createElement('span');
-    level.className = 'card__level';
-    level.textContent = TEXTS.levels[def.level];
+    const text = document.createElement('span');
+    text.className = 'card__text';
+    text.textContent = def.text;
 
-    button.append(label, level);
+    button.append(name, text);
     item.append(button);
     return item;
   }

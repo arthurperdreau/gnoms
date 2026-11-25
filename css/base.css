@@ -1,39 +1,32 @@
 /* =========================================================
-   base.css — variables, light reset, mobile-first layout,
-   buttons and message area.
+   base.css — Gnomads palette, light reset, mobile-first
+   layout, logo, buttons and message area.
+
+   Colour rule: only the official palette below, plus white
+   for backgrounds. Text is always black: it stays readable
+   on every palette colour (contrast >= 6:1).
    ========================================================= */
 
 :root {
-  /* Garden palette */
-  --color-grass: #7cb661;
-  --color-grass-dark: #5a9445;
-  --color-soil: #8b5e3c;
-  --color-soil-dark: #6b4529;
-  --color-stone: #8a8d91;
-  --color-gold: #f2c230;
-  --color-gnome-hat: #d9363e;
-  --color-sky: #eef6e8;
-  --color-surface: #ffffff;
-  --color-text: #2b2b24;
-  --color-text-muted: #6b6b5e;
-  --color-border: #d7dccf;
-  --color-focus: #2f6fd6;
-  --color-danger: #c0392b;
-  --color-success: #2e8b57;
-
-  /* Card families */
-  --color-family-move: #3e8ed0;
-  --color-family-loop: #e08a1e;
-  --color-family-condition: #8e5bc4;
+  /* Official palette */
+  --color-blue: #73b6e5;    /* movement cards */
+  --color-purple: #a97fb7;  /* loop cards (Repeat) */
+  --color-coral: #ef7d5d;   /* condition cards (If, Else) */
+  --color-green: #a3ca63;   /* garden squares */
+  --color-yellow: #f8da46;  /* treasure */
+  --color-pink: #f08bb8;    /* current card, selected container */
+  --color-orange: #f59e51;  /* main buttons (Run, Step) */
+  --color-black: #000000;   /* text */
+  --color-white: #ffffff;   /* backgrounds */
 
   /* Sizes */
   --gutter: 16px;
-  --radius: 10px;
-  --radius-small: 6px;
+  --radius: 18px;
+  --radius-small: 12px;
+  --border: 2px solid var(--color-black);
   --tap-size: 44px;          /* minimum touch target */
   --board-max-width: 560px;
-  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --font-body: "Nunito", ui-rounded, "Arial Rounded MT Bold", "Varela Round", system-ui, sans-serif;
 }
 
 /* ---------- Light reset ---------- */
@@ -49,8 +42,8 @@ body {
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.4;
-  color: var(--color-text);
-  background: var(--color-sky);
+  color: var(--color-black);
+  background: var(--color-white);
 }
 
 h1, h2, h3, p, ol, ul { margin: 0; }
@@ -68,35 +61,36 @@ button { font: inherit; color: inherit; }
 
 [hidden] { display: none !important; }
 
-/* ---------- Header ---------- */
+/* ---------- Header + logo ---------- */
 .app-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px var(--gutter);
-  background: var(--color-grass-dark);
-  color: #fff;
+  padding: 12px var(--gutter) 4px;
+  text-align: center;
 }
-.app-header__title { font-size: 1.25rem; }
+.app-header__title { margin: 0 auto; max-width: 560px; }
+.app-header__logo {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
 
 /* ---------- Layout (mobile first: one column) ---------- */
 .app {
   display: grid;
-  gap: 12px;
-  padding: 12px var(--gutter) 32px;
+  gap: 14px;
+  padding: 8px var(--gutter) 32px;
   max-width: 1100px;
   margin: 0 auto;
 }
 
 .panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-white);
+  border: var(--border);
   border-radius: var(--radius);
-  padding: 12px;
-  box-shadow: var(--shadow);
+  padding: 14px;
   min-width: 0;
 }
-.panel--board { padding: 8px; }
+.panel--board { padding: 10px; }
 
 .panel__header {
   display: flex;
@@ -105,11 +99,12 @@ button { font: inherit; color: inherit; }
   gap: 8px;
 }
 .panel__title {
-  font-size: 1rem;
-  margin-bottom: 8px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 10px;
 }
 
-/* Tablet / desktop: board on the left, tools on the right */
+/* Tablet / desktop: garden on the left, cards on the right */
 @media (min-width: 900px) {
   .app {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -130,47 +125,39 @@ button { font: inherit; color: inherit; }
 .btn {
   min-height: var(--tap-size);
   padding: 8px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  background: var(--color-surface);
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--color-white);
+  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color 0.15s, transform 0.05s;
+  transition: transform 0.08s;
 }
-.btn:hover { background: #f4f6f1; }
-.btn:active { transform: scale(0.97); }
+.btn:active { transform: scale(0.96); }
 .btn:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: 3px solid var(--color-black);
+  outline-offset: 3px;
 }
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
 }
 
-.btn--primary {
-  background: var(--color-grass-dark);
-  border-color: var(--color-grass-dark);
-  color: #fff;
-  font-weight: 600;
-}
-.btn--primary:hover { background: var(--color-grass); }
+.btn--primary { background: var(--color-orange); }
 
-.btn--danger { color: var(--color-danger); }
+.btn--danger { border-color: var(--color-coral); }
 
 .btn--small {
   min-height: 36px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   font-size: 0.875rem;
 }
 
 .btn--mode[aria-checked="true"],
 .btn--dir[aria-pressed="true"],
 .btn--level[aria-checked="true"] {
-  background: var(--color-grass-dark);
-  border-color: var(--color-grass-dark);
-  color: #fff;
+  background: var(--color-green);
 }
 
 /* ---------- Toolbar ---------- */
@@ -180,7 +167,7 @@ button { font: inherit; color: inherit; }
   flex-wrap: wrap;
   gap: 8px;
 }
-.toolbar .btn { flex: 1 1 0; }
+.toolbar .btn { flex: 1 1 0; padding-inline: 8px; }
 
 .direction-picker {
   display: grid;
@@ -191,7 +178,7 @@ button { font: inherit; color: inherit; }
     ".  s  .";
   gap: 4px;
   justify-content: center;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .direction-picker [data-direction="N"] { grid-area: n; }
 .direction-picker [data-direction="W"] { grid-area: w; }
@@ -200,20 +187,20 @@ button { font: inherit; color: inherit; }
 .btn--dir { padding: 0; font-size: 1.25rem; }
 
 .controls .btn { flex: 1 1 calc(50% - 4px); }
-.controls .btn--primary { flex-basis: 100%; }
 
 /* ---------- Message area ---------- */
 .message {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: var(--border);
   border-radius: var(--radius-small);
-  background: #f4f6f1;
-  min-height: 2.6em;
-  color: var(--color-text-muted);
+  background: var(--color-white);
+  min-height: 2.8em;
 }
-.message--success { background: #e3f4ea; color: var(--color-success); font-weight: 600; }
-.message--warning { background: #fdf2e0; color: #9a5b00; }
-.message--error   { background: #fbe5e2; color: var(--color-danger); }
+.message:empty { visibility: hidden; }
+.message--success { background: var(--color-green); font-weight: 800; }
+.message--warning { background: var(--color-yellow); }
+.message--error   { background: var(--color-coral); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
