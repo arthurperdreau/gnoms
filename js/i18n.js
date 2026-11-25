@@ -79,6 +79,14 @@ export const TEXTS = Object.freeze({
   clearProgram: 'Clear',
   clearObstacles: 'Clear obstacles',
 
+  // Messages shown while a special square moves the gnome (keys = STEP_EVENTS values)
+  effectMessages: Object.freeze({
+    mushroom: 'Mushroom! The gnome moves 1 more square.',
+    burrow: 'Burrow! The gnome goes back to its start square.',
+    slid: 'Root! The gnome slides toward the tip of the root…',
+    pushed: 'Rake! The gnome is pushed back…',
+  }),
+
   // Messages
   msgReady: 'Put your gnome on a footprints square, build an algorithm, then press Run.',
   msgEmptyProgram: 'Your algorithm is empty.',

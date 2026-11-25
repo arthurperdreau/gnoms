@@ -126,6 +126,17 @@ export const STEP_EVENTS = Object.freeze({
   PUSHED: 'pushed',     // one square pushed back by a rake
 });
 
+/**
+ * Steps caused by a special square, not by a card. The animation plays them
+ * faster and does not re-highlight the card for each of them.
+ */
+export const EFFECT_EVENTS = Object.freeze(new Set([
+  STEP_EVENTS.MUSHROOM, STEP_EVENTS.BURROW, STEP_EVENTS.SLID, STEP_EVENTS.PUSHED,
+]));
+
+/** Speed of effect steps compared to normal steps (0.5 = twice as fast). */
+export const EFFECT_DELAY_RATIO = 0.5;
+
 /** Final status of a run, returned by the interpreter. */
 export const RUN_STATUS = Object.freeze({
   TREASURE: 'treasure',       // the gnome reached the treasure

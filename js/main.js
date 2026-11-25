@@ -8,7 +8,7 @@
  * logic objects themselves.
  */
 
-import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS, STEP_EVENTS, BOARD_IMAGE } from './config.js';
+import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS, STEP_EVENTS, EFFECT_EVENTS, BOARD_IMAGE } from './config.js';
 import { TEXTS } from './i18n.js';
 import { Board } from './logic/board.js';
 import { createGnome, cloneGnome, rotateDirection, samePosition } from './logic/gnome.js';
@@ -300,7 +300,12 @@ function onAnimationStep(step) {
   if (step.event === STEP_EVENTS.START) views.board.clearEffects();
   state.gnome = step.gnome;
   views.board.renderGnome(step.gnome, step.event);
-  views.program.highlightCard(step.cardUid);
+
+  // A special square moves the gnome: say what happens, and keep the card
+  // highlighted without pulsing again (it is not run again).
+  const isEffect = EFFECT_EVENTS.has(step.event);
+  views.program.highlightCard(step.cardUid, { pulse: !isEffect });
+  views.animator.showStepMessage(isEffect ? TEXTS.effectMessages[step.event] : '');
 }
 
 /**

@@ -8,7 +8,7 @@
  * and main.js updates the views.
  */
 
-import { ANIMATION_DELAY_MS, RUN_STATUS, MAX_STEPS } from '../config.js';
+import { ANIMATION_DELAY_MS, RUN_STATUS, MAX_STEPS, EFFECT_EVENTS, EFFECT_DELAY_RATIO } from '../config.js';
 import { TEXTS } from '../i18n.js';
 
 export class Animator {
@@ -77,14 +77,17 @@ export class Animator {
 
   /**
    * Schedule the next tick with setTimeout (easier to stop than setInterval).
+   * Steps caused by a special square (slide, push...) are played faster.
    * @returns {void}
    */
   scheduleNext() {
+    const next = this.run?.steps[this.cursor];
+    const delay = next && EFFECT_EVENTS.has(next.event) ? this.delayMs * EFFECT_DELAY_RATIO : this.delayMs;
     this.timerId = setTimeout(() => {
       this.showNextStep();
       if (this.isFinished()) this.stop();
       else this.scheduleNext();
-    }, this.delayMs);
+    }, delay);
   }
 
   /**
@@ -164,6 +167,17 @@ export class Animator {
     const { x, y, direction } = run.finalGnome;
     const text = `${TEXTS.msgFinished(x, y, TEXTS.directions[direction])} ${TEXTS.msgBlocked(run.blockedCount)}`;
     this.showMessage(text, run.blockedCount > 0 ? 'warning' : 'info');
+  }
+
+  /**
+   * Message shown during the animation (e.g. what a special square does).
+   * Ignored once the run is finished, so it never hides the final message.
+   * @param {string} text Empty string clears it.
+   * @returns {void}
+   */
+  showStepMessage(text) {
+    if (this.isFinished()) return;
+    this.showMessage(text, 'info');
   }
 
   /**

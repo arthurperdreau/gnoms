@@ -164,9 +164,13 @@ export class ProgramView {
   /**
    * Highlight the card being executed (remove the previous highlight).
    * @param {string|null} uid null removes any highlight.
+   * @param {{pulse?: boolean}} [options] pulse=false: if this card is already
+   *   highlighted, keep it as it is (used for the steps of a special square,
+   *   so the card does not look like it runs again).
    * @returns {void}
    */
-  highlightCard(uid) {
+  highlightCard(uid, { pulse = true } = {}) {
+    if (!pulse && uid && uid === this.highlightedUid) return;
     if (this.highlightedUid) {
       this.cardElements.get(this.highlightedUid)?.classList.remove('card--current');
     }
