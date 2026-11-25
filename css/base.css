@@ -19,6 +19,10 @@
   --color-black: #000000;   /* text */
   --color-white: #ffffff;   /* backgrounds */
 
+  /* Page background: one plain colour from the palette, behind white panels.
+     Change it here only (e.g. var(--color-green) for a garden look). */
+  --color-page: var(--color-blue);
+
   /* Sizes */
   --gutter: 16px;
   --radius: 18px;
@@ -43,7 +47,7 @@ body {
   font-size: 16px;
   line-height: 1.4;
   color: var(--color-black);
-  background: var(--color-white);
+  background: var(--color-page);
 }
 
 h1, h2, h3, p, ol, ul { margin: 0; }
@@ -63,10 +67,19 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Header + logo ---------- */
 .app-header {
-  padding: 12px var(--gutter) 4px;
+  padding: 14px var(--gutter) 4px;
   text-align: center;
 }
-.app-header__title { margin: 0 auto; max-width: 560px; }
+/* The logo sits on a white card, like the panels below */
+.app-header__title {
+  margin: 0 auto;
+  max-width: calc(1100px - 2 * var(--gutter)); /* same width as .app */
+  padding: 10px 16px;
+  background: var(--color-white);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+.app-header__logo { max-width: 520px !important; }
 .app-header__logo {
   width: 100%;
   max-width: 100%;
