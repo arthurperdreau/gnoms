@@ -21,7 +21,7 @@
 
   /* Page background: one plain colour from the palette, behind white panels.
      Change it here only (e.g. var(--color-green) for a garden look). */
-  --color-page: var(--color-blue);
+  --color-page: var(--color-purple);
 
   /* Sizes */
   --gutter: 16px;
