@@ -33,40 +33,71 @@ export class Controls {
     this.root = root;
     this.callbacks = callbacks;
 
-    // TODO: store references: this.toolbar (#toolbar), this.directionPicker (#direction-picker),
-    //       this.buttons = { run, step, reset, clear, clearWalls } from BUTTON_IDS.
-    // TODO: this.bindEvents();
+    this.toolbar = root.querySelector('#toolbar');
+    this.directionPicker = root.querySelector('#direction-picker');
+    /** @type {Record<keyof BUTTON_IDS, HTMLButtonElement>} */
+    this.buttons = {};
+    for (const [key, id] of Object.entries(BUTTON_IDS)) {
+      this.buttons[key] = root.querySelector(`#${id}`);
+    }
+
+    this.bindEvents();
   }
 
   /**
-   * Wire every button:
-   *  - .btn--mode[data-mode] -> onModeChange
-   *  - .btn--dir[data-direction] -> onDirectionChange
-   *  - run / step / reset / clear / clearWalls -> matching callback
+   * Wire every button to its callback.
    * @returns {void}
    */
   bindEvents() {
-    // TODO: implement.
+    this.toolbar.addEventListener('click', (event) => {
+      const button = /** @type {HTMLButtonElement} */ (event.target).closest('.btn--mode');
+      if (button && !button.disabled) this.callbacks.onModeChange(button.dataset.mode);
+    });
+
+    this.directionPicker.addEventListener('click', (event) => {
+      const button = /** @type {HTMLButtonElement} */ (event.target).closest('.btn--dir');
+      if (button && !button.disabled) this.callbacks.onDirectionChange(button.dataset.direction);
+    });
+
+    // Direction buttons get translated labels
+    for (const button of this.directionPicker.querySelectorAll('.btn--dir')) {
+      button.setAttribute('aria-label', TEXTS.directions[button.dataset.direction]);
+    }
+
+    this.buttons.run.addEventListener('click', () => this.callbacks.onRun());
+    this.buttons.step.addEventListener('click', () => this.callbacks.onStep());
+    this.buttons.reset.addEventListener('click', () => this.callbacks.onResetGnome());
+    this.buttons.clear.addEventListener('click', () => this.callbacks.onClearProgram());
+    this.buttons.clearWalls.addEventListener('click', () => this.callbacks.onClearWalls());
   }
 
   /**
-   * Show the active mode (aria-checked) and the direction picker when
-   * mode === TOOL_MODES.DIRECTION, with the current direction pressed.
+   * Show the active mode and, in direction mode, the direction picker.
    * @param {string} mode
    * @param {'N'|'E'|'S'|'W'} direction
    * @returns {void}
    */
   setMode(mode, direction) {
-    // TODO: implement.
+    for (const button of this.toolbar.querySelectorAll('.btn--mode')) {
+      button.setAttribute('aria-checked', String(button.dataset.mode === mode));
+    }
+    this.directionPicker.hidden = mode !== TOOL_MODES.DIRECTION;
+    for (const button of this.directionPicker.querySelectorAll('.btn--dir')) {
+      button.setAttribute('aria-pressed', String(button.dataset.direction === direction));
+    }
   }
 
   /**
-   * Update the buttons during the animation:
-   * Run label becomes TEXTS.stop, editing buttons (Clear, Clear walls, modes) are disabled.
+   * Update the buttons during the animation: Run becomes Stop, editing is disabled.
    * @param {boolean} running
    * @returns {void}
    */
   setRunning(running) {
-    // TODO: implement.
+    this.buttons.run.textContent = running ? TEXTS.stop : TEXTS.run;
+    this.buttons.clear.disabled = running;
+    this.buttons.clearWalls.disabled = running;
+    for (const button of this.root.querySelectorAll('.btn--mode, .btn--dir')) {
+      button.disabled = running;
+    }
   }
 }

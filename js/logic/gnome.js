@@ -17,10 +17,13 @@ import { DIRECTIONS, DIRECTION_ORDER, DEFAULT_GNOME } from '../config.js';
  * @param {number} [y=DEFAULT_GNOME.y]
  * @param {Direction} [direction=DEFAULT_GNOME.direction]
  * @returns {GnomeState}
+ * @throws {Error} If the direction is not N, E, S or W.
  */
 export function createGnome(x = DEFAULT_GNOME.x, y = DEFAULT_GNOME.y, direction = DEFAULT_GNOME.direction) {
-  // TODO: validate the direction with isValidDirection (throw an Error if invalid).
-  // TODO: return { x, y, direction }.
+  if (!isValidDirection(direction)) {
+    throw new Error(`Invalid direction: ${direction}`);
+  }
+  return { x, y, direction };
 }
 
 /**
@@ -29,7 +32,7 @@ export function createGnome(x = DEFAULT_GNOME.x, y = DEFAULT_GNOME.y, direction 
  * @returns {boolean}
  */
 export function isValidDirection(direction) {
-  // TODO: return DIRECTION_ORDER.includes(direction).
+  return DIRECTION_ORDER.includes(direction);
 }
 
 /**
@@ -39,8 +42,9 @@ export function isValidDirection(direction) {
  * @returns {Direction}
  */
 export function rotateDirection(direction, quarterTurns) {
-  // TODO: index = DIRECTION_ORDER.indexOf(direction)
-  // TODO: new index = ((index + quarterTurns) % 4 + 4) % 4   (handles negatives)
+  const index = DIRECTION_ORDER.indexOf(direction);
+  const count = DIRECTION_ORDER.length;
+  return DIRECTION_ORDER[(((index + quarterTurns) % count) + count) % count];
 }
 
 /**
@@ -49,7 +53,7 @@ export function rotateDirection(direction, quarterTurns) {
  * @returns {GnomeState} New state, same position.
  */
 export function turnLeft(gnome) {
-  // TODO: return { ...gnome, direction: rotateDirection(gnome.direction, -1) }.
+  return { ...gnome, direction: rotateDirection(gnome.direction, -1) };
 }
 
 /**
@@ -58,7 +62,7 @@ export function turnLeft(gnome) {
  * @returns {GnomeState}
  */
 export function turnRight(gnome) {
-  // TODO: same as turnLeft with +1.
+  return { ...gnome, direction: rotateDirection(gnome.direction, 1) };
 }
 
 /**
@@ -67,7 +71,7 @@ export function turnRight(gnome) {
  * @returns {GnomeState}
  */
 export function uTurn(gnome) {
-  // TODO: same as turnLeft with +2.
+  return { ...gnome, direction: rotateDirection(gnome.direction, 2) };
 }
 
 /**
@@ -76,7 +80,8 @@ export function uTurn(gnome) {
  * @returns {{x: number, y: number}}
  */
 export function cellAhead(gnome) {
-  // TODO: use DIRECTIONS[gnome.direction] -> { x: x + dx, y: y + dy }.
+  const { dx, dy } = DIRECTIONS[gnome.direction];
+  return { x: gnome.x + dx, y: gnome.y + dy };
 }
 
 /**
@@ -85,7 +90,8 @@ export function cellAhead(gnome) {
  * @returns {{x: number, y: number}}
  */
 export function cellBehind(gnome) {
-  // TODO: { x: x - dx, y: y - dy }.
+  const { dx, dy } = DIRECTIONS[gnome.direction];
+  return { x: gnome.x - dx, y: gnome.y - dy };
 }
 
 /**
@@ -95,7 +101,7 @@ export function cellBehind(gnome) {
  * @returns {GnomeState}
  */
 export function moveTo(gnome, position) {
-  // TODO: return { ...gnome, x: position.x, y: position.y }.
+  return { ...gnome, x: position.x, y: position.y };
 }
 
 /**
@@ -104,15 +110,15 @@ export function moveTo(gnome, position) {
  * @returns {GnomeState}
  */
 export function cloneGnome(gnome) {
-  // TODO: return { ...gnome }.
+  return { x: gnome.x, y: gnome.y, direction: gnome.direction };
 }
 
 /**
- * Check if two gnome states are on the same cell.
+ * Check if two positions are the same cell.
  * @param {{x: number, y: number}} a
  * @param {{x: number, y: number}} b
  * @returns {boolean}
  */
 export function samePosition(a, b) {
-  // TODO: compare x and y.
+  return a.x === b.x && a.y === b.y;
 }

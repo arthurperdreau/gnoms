@@ -20,29 +20,52 @@ export class PaletteView {
     this.callbacks = callbacks;
     /** @type {boolean} */
     this.locked = false;
+    /** @type {boolean} Last value of canAdd, to restore buttons after unlocking. */
+    this.canAdd = true;
 
-    // TODO: this.buildFilter(); this.bindEvents();
+    this.buildFilter();
+    this.bindEvents();
   }
 
   /**
-   * Create the filter buttons: "All" + one per LEVELS value
-   * (<button class="btn btn--level" role="radio" data-level="1">Beginner</button>).
-   * "All" uses data-level="".
+   * Create the filter buttons: "All" + one per LEVELS value.
    * @returns {void}
    */
   buildFilter() {
-    // TODO: implement with TEXTS.levelAll and TEXTS.levels.
+    const makeButton = (label, level) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn btn--level';
+      button.setAttribute('role', 'radio');
+      button.dataset.level = level === null ? '' : String(level);
+      button.textContent = label;
+      return button;
+    };
+
+    this.filter.replaceChildren(
+      makeButton(TEXTS.levelAll, null),
+      ...Object.values(LEVELS).map((level) => makeButton(TEXTS.levels[level], level)),
+    );
   }
 
   /**
-   * Event delegation:
-   *  - click on .btn--level -> callbacks.onLevelChange(level or null)
-   *  - click on .card[data-card-id] -> callbacks.onCardTap(cardId)
-   * Ignore while locked.
+   * Event delegation for the filter and the cards.
    * @returns {void}
    */
   bindEvents() {
-    // TODO: implement.
+    this.filter.addEventListener('click', (event) => {
+      const button = /** @type {HTMLElement} */ (event.target).closest('.btn--level');
+      if (!button) return;
+      const level = button.dataset.level === '' ? null : Number(button.dataset.level);
+      this.callbacks.onLevelChange(level);
+    });
+
+    this.list.addEventListener('click', (event) => {
+      if (this.locked) return;
+      const card = /** @type {HTMLButtonElement} */ (event.target).closest('.card[data-card-id]');
+      if (!card || card.disabled) return;
+      this.callbacks.onCardTap(card.dataset.cardId);
+    });
   }
 
   /**
@@ -52,21 +75,40 @@ export class PaletteView {
    * @returns {void}
    */
   render(level, canAdd) {
-    // TODO: update aria-checked on the filter buttons.
-    // TODO: list.replaceChildren(...getCardsByLevel(level).map(def => this.createCardElement(def, canAdd))).
+    this.canAdd = canAdd;
+    for (const button of this.filter.querySelectorAll('.btn--level')) {
+      const buttonLevel = button.dataset.level === '' ? null : Number(button.dataset.level);
+      button.setAttribute('aria-checked', String(buttonLevel === level));
+    }
+    const enabled = canAdd && !this.locked;
+    this.list.replaceChildren(...getCardsByLevel(level).map((def) => this.createCardElement(def, enabled)));
   }
 
   /**
    * Build one palette card.
-   * <li><button class="card card--<family>" data-card-id="...">
-   *   <span class="card__label">Forward 1</span><span class="card__level">Beginner</span>
-   * </button></li>
    * @param {import('../logic/cards.js').CardDefinition} def
    * @param {boolean} enabled
    * @returns {HTMLLIElement}
    */
   createCardElement(def, enabled) {
-    // TODO: implement, label from TEXTS.cards[def.id], disabled = !enabled.
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `card card--${def.family}`;
+    button.dataset.cardId = def.id;
+    button.disabled = !enabled;
+
+    const label = document.createElement('span');
+    label.className = 'card__label';
+    label.textContent = TEXTS.cards[def.id];
+
+    const level = document.createElement('span');
+    level.className = 'card__level';
+    level.textContent = TEXTS.levels[def.level];
+
+    button.append(label, level);
+    item.append(button);
+    return item;
   }
 
   /**
@@ -75,6 +117,9 @@ export class PaletteView {
    * @returns {void}
    */
   setLocked(locked) {
-    // TODO: this.locked = locked; disable every button of the list.
+    this.locked = locked;
+    for (const button of this.list.querySelectorAll('.card')) {
+      button.disabled = locked || !this.canAdd;
+    }
   }
 }

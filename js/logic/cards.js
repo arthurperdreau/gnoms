@@ -88,13 +88,19 @@ export const CARD_CATALOGUE = Object.freeze([
     slots: { body: { max: 1, rejects: [CARD_IDS.ELSE] } } },
 ]);
 
+/** Fast lookup: card id -> definition. */
+const DEFINITIONS_BY_ID = new Map(CARD_CATALOGUE.map((def) => [def.id, def]));
+
+/** Counter used by generateUid. */
+let uidCounter = 0;
+
 /**
  * Get a card definition from its id.
  * @param {string} cardId
  * @returns {CardDefinition|undefined}
  */
 export function getCardDefinition(cardId) {
-  // TODO: find the entry in CARD_CATALOGUE (or build a Map once for speed).
+  return DEFINITIONS_BY_ID.get(cardId);
 }
 
 /**
@@ -103,8 +109,8 @@ export function getCardDefinition(cardId) {
  * @returns {CardDefinition[]}
  */
 export function getCardsByLevel(level) {
-  // TODO: return the whole catalogue when level is null,
-  //       otherwise filter on def.level === level.
+  if (level === null || level === undefined) return [...CARD_CATALOGUE];
+  return CARD_CATALOGUE.filter((def) => def.level === level);
 }
 
 /**
@@ -113,7 +119,7 @@ export function getCardsByLevel(level) {
  * @returns {boolean} true for Repeat, If and Else.
  */
 export function isContainer(cardId) {
-  // TODO: return Boolean(getCardDefinition(cardId)?.slots).
+  return Boolean(getCardDefinition(cardId)?.slots);
 }
 
 /**
@@ -121,8 +127,8 @@ export function isContainer(cardId) {
  * @returns {string} e.g. "card-12".
  */
 export function generateUid() {
-  // TODO: keep a module-level counter and return `card-${++counter}`.
-  //       (crypto.randomUUID() also works in browsers and Node 19+.)
+  uidCounter += 1;
+  return `card-${uidCounter}`;
 }
 
 /**
@@ -133,9 +139,18 @@ export function generateUid() {
  * @throws {Error} If the card id is unknown.
  */
 export function createCardInstance(cardId) {
-  // TODO: get the definition, throw if missing.
-  // TODO: build { uid: generateUid(), cardId }.
-  // TODO: if def.slots, add `slots` = { slotName: [] } for each slot name.
+  const def = getCardDefinition(cardId);
+  if (!def) throw new Error(`Unknown card: ${cardId}`);
+
+  /** @type {CardInstance} */
+  const instance = { uid: generateUid(), cardId };
+  if (def.slots) {
+    instance.slots = {};
+    for (const slotName of Object.keys(def.slots)) {
+      instance.slots[slotName] = [];
+    }
+  }
+  return instance;
 }
 
 /**
@@ -147,8 +162,10 @@ export function createCardInstance(cardId) {
  * @returns {boolean}
  */
 export function slotAccepts(container, slotName, cardId) {
-  // TODO: read the SlotDefinition from the container's definition.
-  // TODO: refuse if container.slots[slotName].length >= slot.max.
-  // TODO: refuse if slot.accepts exists and does not include cardId.
-  // TODO: refuse if slot.rejects includes cardId.
+  const slot = getCardDefinition(container.cardId)?.slots?.[slotName];
+  if (!slot || !container.slots?.[slotName]) return false;
+  if (container.slots[slotName].length >= slot.max) return false;
+  if (slot.accepts && !slot.accepts.includes(cardId)) return false;
+  if (slot.rejects && slot.rejects.includes(cardId)) return false;
+  return true;
 }

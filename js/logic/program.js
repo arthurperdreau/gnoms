@@ -44,7 +44,16 @@ export class Program {
    * @returns {number}
    */
   countCards(list = this.root) {
-    // TODO: for each card: 1 + countCards of every slot array (if card.slots).
+    let total = 0;
+    for (const card of list) {
+      total += 1;
+      if (card.slots) {
+        for (const children of Object.values(card.slots)) {
+          total += this.countCards(children);
+        }
+      }
+    }
+    return total;
   }
 
   /**
@@ -52,7 +61,7 @@ export class Program {
    * @returns {boolean}
    */
   canAddCard() {
-    // TODO: return this.countCards() < this.maxCards.
+    return this.countCards() < this.maxCards;
   }
 
   /**
@@ -62,8 +71,27 @@ export class Program {
    *   the slot name, the array that holds it and its index in that array.
    */
   findCard(uid) {
-    // TODO: depth-first search starting at this.root (write a recursive helper
-    //       that receives (list, parent, slotName)).
+    if (!uid) return null;
+    /**
+     * @param {CardInstance[]} list
+     * @param {CardInstance|null} parent
+     * @param {string|null} slotName
+     * @returns {CardLocation|null}
+     */
+    const search = (list, parent, slotName) => {
+      for (let index = 0; index < list.length; index++) {
+        const card = list[index];
+        if (card.uid === uid) return { card, parent, slotName, list, index };
+        if (card.slots) {
+          for (const [name, children] of Object.entries(card.slots)) {
+            const found = search(children, card, name);
+            if (found) return found;
+          }
+        }
+      }
+      return null;
+    };
+    return search(this.root, null, null);
   }
 
   /**
@@ -76,8 +104,11 @@ export class Program {
    * @returns {string|null} The slot name, or null if no slot accepts it.
    */
   pickSlot(container, cardId) {
-    // TODO: loop over Object.keys(container.slots) and return the first one
-    //       where slotAccepts(container, slotName, cardId) is true.
+    if (!container.slots) return null;
+    for (const slotName of Object.keys(container.slots)) {
+      if (slotAccepts(container, slotName, cardId)) return slotName;
+    }
+    return null;
   }
 
   /**
@@ -87,15 +118,31 @@ export class Program {
    * @returns {ProgramResult} `card` is the created instance when ok.
    */
   addCard(cardId, containerUid = null) {
-    // TODO: refuse with UNKNOWN_CARD if getCardDefinition(cardId) is undefined.
-    // TODO: refuse with CARD_LIMIT if !this.canAddCard().
-    // TODO: if containerUid is null:
-    //         - refuse with ELSE_OUTSIDE_IF when cardId === CARD_IDS.ELSE,
-    //         - otherwise push createCardInstance(cardId) into this.root.
-    // TODO: else: findCard(containerUid) -> NOT_FOUND / NOT_A_CONTAINER checks,
-    //       slot = pickSlot(...). If null: ELSE_OUTSIDE_IF for an Else card,
-    //       SLOT_FULL otherwise. Push the new instance into that slot.
-    // TODO: return { ok: true, card }.
+    const def = getCardDefinition(cardId);
+    if (!def) return { ok: false, reason: PROGRAM_ERRORS.UNKNOWN_CARD };
+    if (!this.canAddCard()) return { ok: false, reason: PROGRAM_ERRORS.CARD_LIMIT };
+
+    if (containerUid === null || containerUid === undefined) {
+      if (def.onlyInsideIf) return { ok: false, reason: PROGRAM_ERRORS.ELSE_OUTSIDE_IF };
+      const card = createCardInstance(cardId);
+      this.root.push(card);
+      return { ok: true, card };
+    }
+
+    const location = this.findCard(containerUid);
+    if (!location) return { ok: false, reason: PROGRAM_ERRORS.NOT_FOUND };
+    const container = location.card;
+    if (!isContainer(container.cardId)) return { ok: false, reason: PROGRAM_ERRORS.NOT_A_CONTAINER };
+
+    const slotName = this.pickSlot(container, cardId);
+    if (!slotName) {
+      const elseMisplaced = def.onlyInsideIf && getCardDefinition(container.cardId).action !== 'if';
+      return { ok: false, reason: elseMisplaced ? PROGRAM_ERRORS.ELSE_OUTSIDE_IF : PROGRAM_ERRORS.SLOT_FULL };
+    }
+
+    const card = createCardInstance(cardId);
+    container.slots[slotName].push(card);
+    return { ok: true, card };
   }
 
   /**
@@ -104,7 +151,10 @@ export class Program {
    * @returns {ProgramResult}
    */
   removeCard(uid) {
-    // TODO: findCard(uid), then location.list.splice(location.index, 1).
+    const location = this.findCard(uid);
+    if (!location) return { ok: false, reason: PROGRAM_ERRORS.NOT_FOUND };
+    location.list.splice(location.index, 1);
+    return { ok: true, card: location.card };
   }
 
   /**
@@ -114,9 +164,18 @@ export class Program {
    * @returns {{valid: boolean, errors: string[]}} errors = PROGRAM_ERRORS values.
    */
   validate() {
-    // TODO: check countCards() <= maxCards.
-    // TODO: walk the tree; for each Else card, check that its parent exists,
-    //       that its parent's action is 'if' and that slotName === 'else'.
+    const errors = [];
+    if (this.countCards() > this.maxCards) errors.push(PROGRAM_ERRORS.CARD_LIMIT);
+
+    this.forEachCard((card, depth, parent, slotName) => {
+      if (card.cardId !== CARD_IDS.ELSE) return;
+      const parentIsIf = parent && getCardDefinition(parent.cardId).action === 'if';
+      if (!parentIsIf || slotName !== 'else') {
+        if (!errors.includes(PROGRAM_ERRORS.ELSE_OUTSIDE_IF)) errors.push(PROGRAM_ERRORS.ELSE_OUTSIDE_IF);
+      }
+    });
+
+    return { valid: errors.length === 0, errors };
   }
 
   /**
@@ -124,7 +183,7 @@ export class Program {
    * @returns {boolean}
    */
   isEmpty() {
-    // TODO: return this.root.length === 0.
+    return this.root.length === 0;
   }
 
   /**
@@ -132,16 +191,25 @@ export class Program {
    * @returns {void}
    */
   clear() {
-    // TODO: this.root = [].
+    this.root = [];
   }
 
   /**
    * Walk the tree depth-first and call `visitor` for each card.
-   * Handy for the UI (render) and for validate().
    * @param {(card: CardInstance, depth: number, parent: CardInstance|null, slotName: string|null) => void} visitor
    * @returns {void}
    */
   forEachCard(visitor) {
-    // TODO: recursive walk from this.root with depth 0.
+    const walk = (list, depth, parent, slotName) => {
+      for (const card of list) {
+        visitor(card, depth, parent, slotName);
+        if (card.slots) {
+          for (const [name, children] of Object.entries(card.slots)) {
+            walk(children, depth + 1, card, name);
+          }
+        }
+      }
+    };
+    walk(this.root, 0, null, null);
   }
 }

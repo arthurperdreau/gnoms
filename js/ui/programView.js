@@ -8,6 +8,9 @@
 import { TEXTS } from '../i18n.js';
 import { getCardDefinition, isContainer } from '../logic/cards.js';
 
+/** Slots whose name is displayed as a label (If cards). */
+const LABELLED_SLOTS = Object.freeze({ then: 'slotThen', else: 'slotElse' });
+
 export class ProgramView {
   /**
    * @param {{list: HTMLElement, counter: HTMLElement, targetLabel: HTMLElement, rootButton: HTMLButtonElement}} elements
@@ -23,20 +26,34 @@ export class ProgramView {
     /** @type {boolean} */
     this.locked = false;
 
-    // TODO: this.elements.list.dataset.emptyText = TEXTS.programEmpty (used by CSS :empty).
-    // TODO: this.bindEvents();
+    this.elements.list.dataset.emptyText = TEXTS.programEmpty;
+    this.bindEvents();
   }
 
   /**
-   * Event delegation on the list:
-   *  - click on .program__delete -> callbacks.onDeleteCard(uid)
-   *  - click on a container .card -> callbacks.onSelectContainer(uid)
-   *  - click on rootButton -> callbacks.onBackToRoot()
-   * Ignore while locked.
+   * Event delegation on the list and the "Back to main level" button.
    * @returns {void}
    */
   bindEvents() {
-    // TODO: implement (use data-uid on the elements).
+    this.elements.list.addEventListener('click', (event) => {
+      if (this.locked) return;
+      const target = /** @type {HTMLElement} */ (event.target);
+
+      const deleteButton = target.closest('.program__delete');
+      if (deleteButton) {
+        this.callbacks.onDeleteCard(deleteButton.dataset.uid);
+        return;
+      }
+
+      const card = target.closest('.card[data-uid]');
+      if (card && card.dataset.container === 'true') {
+        this.callbacks.onSelectContainer(card.dataset.uid);
+      }
+    });
+
+    this.elements.rootButton.addEventListener('click', () => {
+      if (!this.locked) this.callbacks.onBackToRoot();
+    });
   }
 
   /**
@@ -46,41 +63,101 @@ export class ProgramView {
    * @returns {void}
    */
   render(program, targetUid) {
-    // TODO: this.cardElements.clear().
-    // TODO: list.replaceChildren(...program.root.map(card => this.createItem(card, targetUid))).
-    // TODO: this.renderCounter(program.countCards(), program.maxCards).
-    // TODO: this.renderTarget(program, targetUid).
+    this.cardElements.clear();
+    this.highlightedUid = null;
+    this.elements.list.replaceChildren(...program.root.map((card) => this.createItem(card, targetUid)));
+    this.renderCounter(program.countCards(), program.maxCards);
+    this.renderTarget(program, targetUid);
+    this.setLocked(this.locked);
   }
 
   /**
    * Build the <li> of one card, recursively for its children.
-   * Structure:
-   * <li class="program__item">
-   *   <div class="program__row">
-   *     <button class="card card--<family> [card--selected]" data-uid>label</button>
-   *     <button class="program__delete" data-uid aria-label="Delete card">×</button>
-   *   </div>
-   *   <!-- containers only, one block per slot: -->
-   *   <span class="program__slot-label">then</span>   (only for If slots)
-   *   <ol class="program__children program__children--<family>">...</ol>
-   *   or <span class="program__slot-empty">empty</span> when the slot is empty
-   * </li>
    * @param {import('../logic/cards.js').CardInstance} card
    * @param {string|null} targetUid
    * @returns {HTMLLIElement}
    */
   createItem(card, targetUid) {
-    // TODO: implement; register the .card element in this.cardElements.
+    const def = getCardDefinition(card.cardId);
+    const container = isContainer(card.cardId);
+
+    const item = document.createElement('li');
+    item.className = 'program__item';
+
+    // --- Row: card + delete button ---
+    const row = document.createElement('div');
+    row.className = 'program__row';
+
+    const cardElement = document.createElement('button');
+    cardElement.type = 'button';
+    cardElement.className = `card card--${def.family}`;
+    cardElement.dataset.uid = card.uid;
+    cardElement.dataset.container = String(container);
+    if (container) {
+      const selected = card.uid === targetUid;
+      cardElement.classList.toggle('card--selected', selected);
+      cardElement.setAttribute('aria-pressed', String(selected));
+    } else {
+      cardElement.tabIndex = -1; // simple cards are not interactive
+      cardElement.style.cursor = 'default';
+    }
+    const label = document.createElement('span');
+    label.className = 'card__label';
+    label.textContent = TEXTS.cards[card.cardId];
+    cardElement.append(label);
+    this.cardElements.set(card.uid, cardElement);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'program__delete';
+    deleteButton.dataset.uid = card.uid;
+    deleteButton.setAttribute('aria-label', `${TEXTS.deleteCard}: ${TEXTS.cards[card.cardId]}`);
+    deleteButton.textContent = '×';
+
+    row.append(cardElement, deleteButton);
+    item.append(row);
+
+    // --- Children, one block per slot ---
+    if (card.slots) {
+      const childrenWrapper = document.createElement('div');
+      childrenWrapper.className = `program__children program__children--${def.family}`;
+
+      for (const [slotName, children] of Object.entries(card.slots)) {
+        const labelKey = LABELLED_SLOTS[slotName];
+        if (labelKey && def.action === 'if') {
+          const slotLabel = document.createElement('span');
+          slotLabel.className = 'program__slot-label';
+          slotLabel.textContent = TEXTS[labelKey];
+          childrenWrapper.append(slotLabel);
+        }
+
+        if (children.length === 0) {
+          const empty = document.createElement('span');
+          empty.className = 'program__slot-empty';
+          empty.textContent = TEXTS.slotEmpty;
+          childrenWrapper.append(empty);
+        } else {
+          const list = document.createElement('ol');
+          list.className = 'program__children-list';
+          list.append(...children.map((child) => this.createItem(child, targetUid)));
+          childrenWrapper.append(list);
+        }
+      }
+      item.append(childrenWrapper);
+    }
+
+    return item;
   }
 
   /**
-   * Update the "used / max" counter (add .card-counter--full at the limit).
+   * Update the "used / max" counter.
    * @param {number} used
    * @param {number} max
    * @returns {void}
    */
   renderCounter(used, max) {
-    // TODO: textContent = TEXTS.cardCounter(used, max).
+    this.elements.counter.textContent = TEXTS.cardCounter(used, max);
+    this.elements.counter.classList.toggle('card-counter--full', used >= max);
   }
 
   /**
@@ -90,8 +167,11 @@ export class ProgramView {
    * @returns {void}
    */
   renderTarget(program, targetUid) {
-    // TODO: TEXTS.targetMain or TEXTS.targetContainer(label of the target card).
-    // TODO: rootButton.hidden = targetUid === null.
+    const location = targetUid ? program.findCard(targetUid) : null;
+    this.elements.targetLabel.textContent = location
+      ? TEXTS.targetContainer(TEXTS.cards[location.card.cardId])
+      : TEXTS.targetMain;
+    this.elements.rootButton.hidden = !location;
   }
 
   /**
@@ -100,8 +180,16 @@ export class ProgramView {
    * @returns {void}
    */
   highlightCard(uid) {
-    // TODO: remove .card--current from this.highlightedUid's element.
-    // TODO: add it to the new one and scrollIntoView({ block: 'nearest' }).
+    if (this.highlightedUid) {
+      this.cardElements.get(this.highlightedUid)?.classList.remove('card--current');
+    }
+    this.highlightedUid = uid;
+    const element = uid ? this.cardElements.get(uid) : null;
+    if (!element) return;
+    element.classList.remove('card--current');
+    void element.offsetWidth; // restart the pulse when the same card runs again
+    element.classList.add('card--current');
+    element.scrollIntoView({ block: 'nearest' });
   }
 
   /**
@@ -110,6 +198,10 @@ export class ProgramView {
    * @returns {void}
    */
   setLocked(locked) {
-    // TODO: this.locked = locked; disable delete buttons; when unlocking, highlightCard(null)?
+    this.locked = locked;
+    for (const button of this.elements.list.querySelectorAll('.program__delete')) {
+      button.disabled = locked;
+    }
+    this.elements.rootButton.disabled = locked;
   }
 }

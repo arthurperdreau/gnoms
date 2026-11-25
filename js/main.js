@@ -8,11 +8,12 @@
  * logic objects themselves.
  */
 
-import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS } from './config.js';
+import { TOOL_MODES, DEFAULT_GNOME, ANIMATION_DELAY_MS, STEP_EVENTS } from './config.js';
 import { TEXTS } from './i18n.js';
 import { Board } from './logic/board.js';
-import { createGnome, cloneGnome } from './logic/gnome.js';
+import { createGnome, cloneGnome, rotateDirection, samePosition } from './logic/gnome.js';
 import { Program, PROGRAM_ERRORS } from './logic/program.js';
+import { isContainer } from './logic/cards.js';
 import { runProgram } from './logic/interpreter.js';
 import { BoardView } from './ui/boardView.js';
 import { PaletteView } from './ui/paletteView.js';
@@ -22,7 +23,7 @@ import { Animator } from './ui/animator.js';
 
 /**
  * Whole application state. Kept in one object to make debugging easy
- * (type `window.gnomads` in the console, see init()).
+ * (type `gnomads.state` in the console).
  */
 const state = {
   /** @type {Board} */
@@ -39,7 +40,7 @@ const state = {
   targetUid: null,
   /** Level filter of the palette (null = all). */
   levelFilter: null,
-  /** Last RunResult, reused by "Step" until the board or the program changes. */
+  /** @type {import('./logic/interpreter.js').RunResult|null} Reused by "Step" until something changes. */
   lastRun: null,
 };
 
@@ -52,8 +53,13 @@ const views = {};
  * @returns {string}
  */
 function programErrorMessage(reason) {
-  // TODO: switch on reason: CARD_LIMIT -> TEXTS.msgCardLimit(state.program.maxCards),
-  //       ELSE_OUTSIDE_IF -> TEXTS.msgElseOutsideIf, SLOT_FULL -> TEXTS.msgSlotFull, ...
+  switch (reason) {
+    case PROGRAM_ERRORS.CARD_LIMIT: return TEXTS.msgCardLimit(state.program.maxCards);
+    case PROGRAM_ERRORS.ELSE_OUTSIDE_IF: return TEXTS.msgElseOutsideIf;
+    case PROGRAM_ERRORS.SLOT_FULL:
+    case PROGRAM_ERRORS.NOT_A_CONTAINER: return TEXTS.msgSlotFull;
+    default: return reason;
+  }
 }
 
 /**
@@ -61,9 +67,11 @@ function programErrorMessage(reason) {
  * @returns {void}
  */
 function applyStaticTexts() {
-  // TODO: document.querySelectorAll('[data-i18n]') and set textContent from TEXTS[key]
-  //       (skip keys whose value is not a string).
-  // TODO: set document.title = TEXTS.appTitle.
+  for (const element of document.querySelectorAll('[data-i18n]')) {
+    const text = TEXTS[element.dataset.i18n];
+    if (typeof text === 'string') element.textContent = text;
+  }
+  document.title = TEXTS.appTitle;
 }
 
 /**
@@ -71,19 +79,23 @@ function applyStaticTexts() {
  * @returns {void}
  */
 function renderAll() {
-  // TODO: views.board.render(state.board, state.gnome, state.startGnome)
-  // TODO: views.program.render(state.program, state.targetUid)
-  // TODO: views.palette.render(state.levelFilter, state.program.canAddCard())
-  // TODO: views.controls.setMode(state.mode, state.gnome.direction)
+  views.board.setMode(state.mode);
+  views.board.render(state.board, state.gnome, state.startGnome);
+  views.program.render(state.program, state.targetUid);
+  views.palette.render(state.levelFilter, state.program.canAddCard());
+  views.controls.setMode(state.mode, state.startGnome.direction);
 }
 
 /**
- * Called when something changes the board or the program: the previous run
- * is no longer valid, so stop any animation and forget it.
+ * Something changed the board, the start gnome or the program: the previous
+ * run is no longer valid. Stop it and show the gnome on its start cell.
  * @returns {void}
  */
 function invalidateRun() {
-  // TODO: views.animator.stop(); state.lastRun = null.
+  views.animator.reset();
+  state.lastRun = null;
+  state.gnome = cloneGnome(state.startGnome);
+  views.board.clearEffects();
 }
 
 // ---------------------------------------------------------------------------
@@ -91,16 +103,40 @@ function invalidateRun() {
 // ---------------------------------------------------------------------------
 
 /**
- * A board cell was tapped. Behaviour depends on state.mode:
- *  - GNOME: move the start gnome there if board.canPlaceGnome (keep its direction).
- *  - WALL: board.toggleWall(x, y, state.startGnome).
- *  - DIRECTION: if the tapped cell is the gnome, rotate it clockwise.
+ * A board cell was tapped. Behaviour depends on state.mode.
  * @param {number} x
  * @param {number} y
  */
 function onCellTap(x, y) {
-  // TODO: implement, show TEXTS.msgCannotPlaceGnome / msgCannotPlaceWall on refusal,
-  //       then set state.gnome = cloneGnome(state.startGnome), invalidateRun(), renderAll().
+  switch (state.mode) {
+    case TOOL_MODES.GNOME:
+      if (samePosition(state.startGnome, { x, y })) return;
+      if (!state.board.canPlaceGnome(x, y)) {
+        views.animator.showMessage(TEXTS.msgCannotPlaceGnome, 'warning');
+        return;
+      }
+      state.startGnome = createGnome(x, y, state.startGnome.direction);
+      break;
+
+    case TOOL_MODES.WALL:
+      if (!state.board.toggleWall(x, y, state.startGnome)) {
+        views.animator.showMessage(TEXTS.msgCannotPlaceWall, 'warning');
+        return;
+      }
+      break;
+
+    case TOOL_MODES.DIRECTION:
+      // Tapping the gnome turns it clockwise; tapping elsewhere does nothing.
+      if (!samePosition(state.startGnome, { x, y })) return;
+      state.startGnome = createGnome(x, y, rotateDirection(state.startGnome.direction, 1));
+      break;
+
+    default:
+      return;
+  }
+  views.animator.showMessage('');
+  invalidateRun();
+  renderAll();
 }
 
 /**
@@ -108,7 +144,8 @@ function onCellTap(x, y) {
  * @param {string} mode A TOOL_MODES value.
  */
 function onModeChange(mode) {
-  // TODO: state.mode = mode; renderAll().
+  state.mode = mode;
+  renderAll();
 }
 
 /**
@@ -116,19 +153,26 @@ function onModeChange(mode) {
  * @param {'N'|'E'|'S'|'W'} direction
  */
 function onDirectionChange(direction) {
-  // TODO: update state.startGnome.direction (createGnome), copy to state.gnome,
-  //       invalidateRun(), renderAll().
+  state.startGnome = createGnome(state.startGnome.x, state.startGnome.y, direction);
+  invalidateRun();
+  renderAll();
 }
 
 /**
  * A palette card was tapped: add it to the algorithm at the current target.
+ * A newly added container becomes the target, so the next cards go inside it.
  * @param {string} cardId
  */
 function onPaletteCardTap(cardId) {
-  // TODO: result = state.program.addCard(cardId, state.targetUid).
-  // TODO: if !result.ok -> views.animator.showMessage(programErrorMessage(result.reason), 'warning').
-  // TODO: optional: if the new card is a container, select it as target automatically.
-  // TODO: invalidateRun(); renderAll().
+  const result = state.program.addCard(cardId, state.targetUid);
+  if (!result.ok) {
+    views.animator.showMessage(programErrorMessage(result.reason), 'warning');
+    return;
+  }
+  if (isContainer(cardId)) state.targetUid = result.card.uid;
+  views.animator.showMessage('');
+  invalidateRun();
+  renderAll();
 }
 
 /**
@@ -136,7 +180,8 @@ function onPaletteCardTap(cardId) {
  * @param {number|null} level
  */
 function onLevelFilterChange(level) {
-  // TODO: state.levelFilter = level; renderAll().
+  state.levelFilter = level;
+  renderAll();
 }
 
 /**
@@ -145,12 +190,14 @@ function onLevelFilterChange(level) {
  * @param {string} uid
  */
 function onSelectContainer(uid) {
-  // TODO: toggle state.targetUid; renderAll().
+  state.targetUid = state.targetUid === uid ? null : uid;
+  renderAll();
 }
 
 /** "Back to main level" button. */
 function onBackToRoot() {
-  // TODO: state.targetUid = null; renderAll().
+  state.targetUid = null;
+  renderAll();
 }
 
 /**
@@ -158,9 +205,11 @@ function onBackToRoot() {
  * @param {string} uid
  */
 function onDeleteCard(uid) {
-  // TODO: state.program.removeCard(uid).
-  // TODO: if the target was this card or inside it (findCard(state.targetUid) is null), reset target.
-  // TODO: invalidateRun(); renderAll().
+  state.program.removeCard(uid);
+  // The target may have been the deleted card or a card inside it.
+  if (state.targetUid && !state.program.findCard(state.targetUid)) state.targetUid = null;
+  invalidateRun();
+  renderAll();
 }
 
 /**
@@ -168,36 +217,55 @@ function onDeleteCard(uid) {
  * @returns {import('./logic/interpreter.js').RunResult|null} null if the program is empty.
  */
 function ensureRun() {
-  // TODO: if program is empty -> show TEXTS.msgEmptyProgram and return null.
-  // TODO: if !state.lastRun -> state.lastRun = runProgram(state.board, state.startGnome, state.program.root).
-  // TODO: return state.lastRun.
+  if (state.program.isEmpty()) {
+    views.animator.showMessage(TEXTS.msgEmptyProgram, 'warning');
+    return null;
+  }
+  if (!state.lastRun) {
+    state.lastRun = runProgram(state.board, state.startGnome, state.program.root);
+  }
+  return state.lastRun;
 }
 
-/** "Run" button: play the whole run automatically (or stop it if running). */
+/** "Run" button: play the whole run automatically, or stop it if running. */
 function onRun() {
-  // TODO: if views.animator.isPlaying -> views.animator.stop() and return.
-  // TODO: run = ensureRun(); if run -> views.animator.play(run).
+  if (views.animator.isPlaying) {
+    views.animator.stop();
+    return;
+  }
+  const run = ensureRun();
+  if (run) views.animator.play(run);
 }
 
 /** "Step" button: show the next step only. */
 function onStep() {
-  // TODO: run = ensureRun(); if run -> views.animator.step(run).
+  const run = ensureRun();
+  if (run) views.animator.step(run);
 }
 
 /** "Reset gnome" button: back to the start position, animation stopped. */
 function onResetGnome() {
-  // TODO: views.animator.reset(); state.gnome = cloneGnome(state.startGnome); renderAll().
-  // TODO: show TEXTS.msgReady.
+  views.animator.reset();
+  state.gnome = cloneGnome(state.startGnome);
+  views.board.clearEffects();
+  views.program.highlightCard(null);
+  renderAll();
+  views.animator.showMessage(TEXTS.msgReady);
 }
 
 /** "Clear" button: empty the algorithm. */
 function onClearProgram() {
-  // TODO: state.program.clear(); state.targetUid = null; invalidateRun(); onResetGnome().
+  state.program.clear();
+  state.targetUid = null;
+  invalidateRun();
+  onResetGnome();
 }
 
 /** "Clear walls" button. */
 function onClearWalls() {
-  // TODO: state.board.clearWalls(); invalidateRun(); renderAll().
+  state.board.clearWalls();
+  invalidateRun();
+  renderAll();
 }
 
 /**
@@ -205,9 +273,10 @@ function onClearWalls() {
  * @param {import('./logic/interpreter.js').Step} step
  */
 function onAnimationStep(step) {
-  // TODO: state.gnome = step.gnome.
-  // TODO: views.board.renderGnome(step.gnome, step.event) (lighter than renderAll).
-  // TODO: views.program.highlightCard(step.cardUid).
+  if (step.event === STEP_EVENTS.START) views.board.clearEffects();
+  state.gnome = step.gnome;
+  views.board.renderGnome(step.gnome, step.event);
+  views.program.highlightCard(step.cardUid);
 }
 
 /**
@@ -215,8 +284,10 @@ function onAnimationStep(step) {
  * @param {boolean} isPlaying
  */
 function onPlayingChange(isPlaying) {
-  // TODO: views.controls.setRunning(isPlaying); views.board.setLocked(isPlaying);
-  //       views.palette.setLocked(isPlaying); views.program.setLocked(isPlaying).
+  views.controls.setRunning(isPlaying);
+  views.board.setLocked(isPlaying);
+  views.palette.setLocked(isPlaying);
+  views.program.setLocked(isPlaying);
 }
 
 // ---------------------------------------------------------------------------
@@ -230,21 +301,41 @@ function onPlayingChange(isPlaying) {
 function init() {
   applyStaticTexts();
 
-  // TODO: views.board = new BoardView(document.getElementById('board'), { onCellTap });
-  // TODO: views.palette = new PaletteView(
-  //         document.getElementById('palette'), document.getElementById('level-filter'),
-  //         { onCardTap: onPaletteCardTap, onLevelChange: onLevelFilterChange });
-  // TODO: views.program = new ProgramView({
-  //         list: #program, counter: #card-counter, targetLabel: #program-target-label, rootButton: #btn-root },
-  //         { onSelectContainer, onDeleteCard, onBackToRoot });
-  // TODO: views.controls = new Controls(document, { onModeChange, onDirectionChange, onRun, onStep,
-  //         onResetGnome, onClearProgram, onClearWalls });
-  // TODO: views.animator = new Animator({ messageElement: #message, delayMs: ANIMATION_DELAY_MS,
-  //         onStep: onAnimationStep, onPlayingChange });
+  views.board = new BoardView(document.getElementById('board'), { onCellTap });
+  views.palette = new PaletteView(
+    document.getElementById('palette'),
+    document.getElementById('level-filter'),
+    { onCardTap: onPaletteCardTap, onLevelChange: onLevelFilterChange },
+  );
+  views.program = new ProgramView(
+    {
+      list: document.getElementById('program'),
+      counter: document.getElementById('card-counter'),
+      targetLabel: document.getElementById('program-target-label'),
+      rootButton: /** @type {HTMLButtonElement} */ (document.getElementById('btn-root')),
+    },
+    { onSelectContainer, onDeleteCard, onBackToRoot },
+  );
+  views.controls = new Controls(document, {
+    onModeChange,
+    onDirectionChange,
+    onRun,
+    onStep,
+    onResetGnome,
+    onClearProgram,
+    onClearWalls,
+  });
+  views.animator = new Animator({
+    messageElement: document.getElementById('message'),
+    delayMs: ANIMATION_DELAY_MS,
+    onStep: onAnimationStep,
+    onPlayingChange,
+  });
 
-  // TODO: renderAll(); views.animator.showMessage(TEXTS.msgReady).
+  renderAll();
+  views.animator.showMessage(TEXTS.msgReady);
 
-  // Debug helper (remove for production if wanted)
+  // Debug helper: inspect the state from the browser console.
   window.gnomads = { state, views };
 }
 

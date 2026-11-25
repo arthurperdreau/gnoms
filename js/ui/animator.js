@@ -30,22 +30,35 @@ export class Animator {
     this.run = null;
     /** Index of the next step to display. */
     this.cursor = 0;
-    /** @type {number|null} setTimeout id while playing. */
+    /** @type {ReturnType<typeof setTimeout>|null} Timer id while playing. */
     this.timerId = null;
   }
 
   /** @returns {boolean} true while the automatic play is running. */
   get isPlaying() {
-    // TODO: return this.timerId !== null.
+    return this.timerId !== null;
   }
 
   /**
-   * Load a run if it is a new one (reset the cursor to 0).
+   * Load a run if it is a new one: show its start state immediately and put
+   * the cursor on the first real step.
    * @param {import('../logic/interpreter.js').RunResult} run
    * @returns {void}
    */
   load(run) {
-    // TODO: if run !== this.run -> this.run = run; this.cursor = 0.
+    if (run === this.run) return;
+    this.run = run;
+    this.rewind();
+  }
+
+  /**
+   * Go back to the start state of the loaded run.
+   * @returns {void}
+   */
+  rewind() {
+    this.cursor = 0;
+    this.showNextStep(); // step 0 = start state, shown without waiting
+    this.showMessage('');
   }
 
   /**
@@ -55,8 +68,11 @@ export class Animator {
    * @returns {void}
    */
   play(run) {
-    // TODO: this.load(run); if this.isFinished() -> this.cursor = 0.
-    // TODO: this.onPlayingChange(true); this.scheduleNext().
+    this.load(run);
+    if (this.isFinished()) this.rewind();
+    if (this.isFinished()) return; // nothing to play
+    this.onPlayingChange(true);
+    this.scheduleNext();
   }
 
   /**
@@ -64,16 +80,28 @@ export class Animator {
    * @returns {void}
    */
   scheduleNext() {
-    // TODO: this.timerId = setTimeout(() => { this.showNextStep(); if finished -> this.stop() else scheduleNext(); }, this.delayMs).
+    this.timerId = setTimeout(() => {
+      this.showNextStep();
+      if (this.isFinished()) this.stop();
+      else this.scheduleNext();
+    }, this.delayMs);
   }
 
   /**
    * Show only the next step (Step button). Stops the automatic play if running.
+   * After the last step, a new press restarts from the beginning.
    * @param {import('../logic/interpreter.js').RunResult} run
    * @returns {void}
    */
   step(run) {
-    // TODO: if playing -> this.stop(). this.load(run). this.showNextStep().
+    if (this.isPlaying) this.stop();
+    const isNew = run !== this.run;
+    this.load(run);
+    if (!isNew && this.isFinished()) {
+      this.rewind();
+      return;
+    }
+    this.showNextStep();
   }
 
   /**
@@ -82,14 +110,15 @@ export class Animator {
    * @returns {void}
    */
   showNextStep() {
-    // TODO: if !this.run or finished -> return.
-    // TODO: this.onStep(this.run.steps[this.cursor]); this.cursor++.
-    // TODO: if this.isFinished() -> this.showFinalMessage(this.run).
+    if (!this.run || this.isFinished()) return;
+    this.onStep(this.run.steps[this.cursor]);
+    this.cursor += 1;
+    if (this.isFinished()) this.showFinalMessage(this.run);
   }
 
   /** @returns {boolean} true when every step has been displayed. */
   isFinished() {
-    // TODO: return !this.run || this.cursor >= this.run.steps.length.
+    return !this.run || this.cursor >= this.run.steps.length;
   }
 
   /**
@@ -97,29 +126,44 @@ export class Animator {
    * @returns {void}
    */
   stop() {
-    // TODO: clearTimeout(this.timerId); this.timerId = null; this.onPlayingChange(false).
-    //       (only call onPlayingChange if it was playing)
+    if (this.timerId === null) return;
+    clearTimeout(this.timerId);
+    this.timerId = null;
+    this.onPlayingChange(false);
   }
 
   /**
    * Stop and forget the current run (used by "Reset gnome").
+   * main.js re-renders the board itself after the reset.
    * @returns {void}
    */
   reset() {
-    // TODO: this.stop(); this.run = null; this.cursor = 0.
-    //       (main.js re-renders the board itself after the reset.)
+    this.stop();
+    this.run = null;
+    this.cursor = 0;
   }
 
   /**
-   * Build and show the final message of a run:
-   *  - TREASURE  -> TEXTS.msgTreasure(steps), 'success'
-   *  - MAX_STEPS -> TEXTS.msgMaxSteps(MAX_STEPS), 'error'
-   *  - FINISHED  -> TEXTS.msgFinished(x, y, direction name) + TEXTS.msgBlocked(n) if n > 0
+   * Build and show the final message of a run.
    * @param {import('../logic/interpreter.js').RunResult} run
    * @returns {void}
    */
   showFinalMessage(run) {
-    // TODO: implement with this.showMessage(text, type).
+    const moves = run.steps.length - 1; // the start step is not a move
+
+    if (run.status === RUN_STATUS.TREASURE) {
+      this.showMessage(TEXTS.msgTreasure(moves), 'success');
+      return;
+    }
+    if (run.status === RUN_STATUS.MAX_STEPS) {
+      this.showMessage(TEXTS.msgMaxSteps(MAX_STEPS), 'error');
+      return;
+    }
+
+    const { x, y, direction } = run.finalGnome;
+    let text = TEXTS.msgFinished(x, y, TEXTS.directions[direction]);
+    if (run.blockedCount > 0) text += ` ${TEXTS.msgBlocked(run.blockedCount)}`;
+    this.showMessage(text, run.blockedCount > 0 ? 'warning' : 'info');
   }
 
   /**
@@ -129,6 +173,7 @@ export class Animator {
    * @returns {void}
    */
   showMessage(text, type = 'info') {
-    // TODO: set textContent and className = `message message--${type}`.
+    this.messageElement.textContent = text;
+    this.messageElement.className = `message message--${type}`;
   }
 }

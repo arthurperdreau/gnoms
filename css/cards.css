@@ -47,6 +47,13 @@
 @media (min-width: 480px) {
   .palette { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.palette .card {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+}
+.palette .card__label { flex: none; }
 .palette .card:active { transform: scale(0.97); }
 .palette .card:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -71,7 +78,8 @@
 .card-counter--full { background: #fbe5e2; color: var(--color-danger); }
 
 .program,
-.program__children {
+.program__children,
+.program__children-list {
   display: grid;
   gap: 6px;
 }

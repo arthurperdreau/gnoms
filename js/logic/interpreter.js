@@ -12,6 +12,7 @@
  *
  * @typedef {import('./gnome.js').GnomeState} GnomeState
  * @typedef {import('./cards.js').CardInstance} CardInstance
+ * @typedef {import('./cards.js').CardDefinition} CardDefinition
  * @typedef {import('./board.js').Board} Board
  *
  * @typedef {Object} Step
@@ -39,7 +40,7 @@
 
 import { MAX_STEPS, STEP_EVENTS, RUN_STATUS, CELL_TYPES } from '../config.js';
 import { getCardDefinition, CONDITIONS } from './cards.js';
-import { turnLeft, turnRight, uTurn, rotateDirection, cellAhead, cellBehind, moveTo, cloneGnome } from './gnome.js';
+import { rotateDirection, cellAhead, cellBehind, moveTo, cloneGnome } from './gnome.js';
 
 /**
  * Main entry point: run an algorithm.
@@ -50,12 +51,27 @@ import { turnLeft, turnRight, uTurn, rotateDirection, cellAhead, cellBehind, mov
  * @returns {RunResult}
  */
 export function runProgram(board, startGnome, cards, options = {}) {
-  // TODO: build the RunContext (board.clone(), cloneGnome(startGnome), steps: [],
-  //       blockedCount: 0, status: null, maxSteps: options.maxSteps ?? MAX_STEPS).
-  // TODO: record the initial step with event STEP_EVENTS.START and cardUid null.
-  // TODO: executeCards(cards, ctx).
-  // TODO: if ctx.status is still null, set it to RUN_STATUS.FINISHED.
-  // TODO: return { steps, status, finalGnome: ctx.gnome, blockedCount }.
+  /** @type {RunContext} */
+  const ctx = {
+    board: board.clone(),
+    gnome: cloneGnome(startGnome),
+    startGnome: cloneGnome(startGnome),
+    steps: [],
+    blockedCount: 0,
+    status: null,
+    maxSteps: options.maxSteps ?? MAX_STEPS,
+  };
+
+  recordStep(ctx, null, STEP_EVENTS.START);
+  executeCards(cards, ctx);
+  if (ctx.status === null) ctx.status = RUN_STATUS.FINISHED;
+
+  return {
+    steps: ctx.steps,
+    status: ctx.status,
+    finalGnome: cloneGnome(ctx.gnome),
+    blockedCount: ctx.blockedCount,
+  };
 }
 
 /**
@@ -65,7 +81,10 @@ export function runProgram(board, startGnome, cards, options = {}) {
  * @returns {void}
  */
 export function executeCards(cards, ctx) {
-  // TODO: for...of loop; break as soon as shouldStop(ctx).
+  for (const card of cards) {
+    if (shouldStop(ctx)) return;
+    executeCard(card, ctx);
+  }
 }
 
 /**
@@ -75,9 +94,10 @@ export function executeCards(cards, ctx) {
  * @returns {void}
  */
 export function executeCard(card, ctx) {
-  // TODO: def = getCardDefinition(card.cardId); handler = CARD_HANDLERS[def.action].
-  // TODO: throw an Error if no handler exists (programming error).
-  // TODO: handler(card, def, ctx).
+  const def = getCardDefinition(card.cardId);
+  const handler = def && CARD_HANDLERS[def.action];
+  if (!handler) throw new Error(`No handler for card: ${card.cardId}`);
+  handler(card, def, ctx);
 }
 
 /**
@@ -86,7 +106,7 @@ export function executeCard(card, ctx) {
  * @returns {boolean}
  */
 export function shouldStop(ctx) {
-  // TODO: return ctx.status !== null.
+  return ctx.status !== null;
 }
 
 /**
@@ -99,10 +119,17 @@ export function shouldStop(ctx) {
  * @returns {void}
  */
 export function recordStep(ctx, cardUid, event, details) {
-  // TODO: push { index: ctx.steps.length, gnome: cloneGnome(ctx.gnome), cardUid, event, details }.
-  // TODO: if event === BLOCKED, ctx.blockedCount++.
-  // TODO: if the number of steps (excluding the start step) >= ctx.maxSteps
-  //       and status is still null, set status to RUN_STATUS.MAX_STEPS.
+  /** @type {Step} */
+  const step = { index: ctx.steps.length, gnome: cloneGnome(ctx.gnome), cardUid, event };
+  if (details) step.details = details;
+  ctx.steps.push(step);
+
+  if (event === STEP_EVENTS.BLOCKED) ctx.blockedCount += 1;
+
+  // The start step does not count toward the limit.
+  if (ctx.status === null && ctx.steps.length - 1 >= ctx.maxSteps) {
+    ctx.status = RUN_STATUS.MAX_STEPS;
+  }
 }
 
 /**
@@ -114,11 +141,24 @@ export function recordStep(ctx, cardUid, event, details) {
  * @returns {boolean} true if the gnome moved.
  */
 export function moveOneCell(ctx, card, way) {
-  // TODO: target = way === 'forward' ? cellAhead(ctx.gnome) : cellBehind(ctx.gnome).
-  // TODO: if ctx.board.isBlocking(target.x, target.y): recordStep BLOCKED, return false.
-  // TODO: ctx.gnome = moveTo(ctx.gnome, target).
-  // TODO: if ctx.board.isTreasure(...): recordStep TREASURE, ctx.status = RUN_STATUS.TREASURE, return true.
-  // TODO: recordStep MOVED, then applyCellEffect(ctx, card, way). Return true.
+  const target = way === 'forward' ? cellAhead(ctx.gnome) : cellBehind(ctx.gnome);
+
+  if (ctx.board.isBlocking(target.x, target.y)) {
+    recordStep(ctx, card.uid, STEP_EVENTS.BLOCKED);
+    return false;
+  }
+
+  ctx.gnome = moveTo(ctx.gnome, target);
+
+  if (ctx.board.isTreasure(target.x, target.y)) {
+    recordStep(ctx, card.uid, STEP_EVENTS.TREASURE);
+    ctx.status = RUN_STATUS.TREASURE; // the treasure wins over the step limit
+    return true;
+  }
+
+  recordStep(ctx, card.uid, STEP_EVENTS.MOVED);
+  applyCellEffect(ctx, card, way);
+  return true;
 }
 
 /**
@@ -133,10 +173,15 @@ export function moveOneCell(ctx, card, way) {
  * @returns {void}
  */
 export function applyCellEffect(ctx, card, way) {
-  // TODO: const type = ctx.board.getCell(ctx.gnome.x, ctx.gnome.y);
-  // TODO: switch (type) { case CELL_TYPES.EMPTY: default: return; }
-  //       Add the cases above when the obstacles are implemented
-  //       (and add new STEP_EVENTS values if needed).
+  const type = ctx.board.getCell(ctx.gnome.x, ctx.gnome.y);
+  switch (type) {
+    // case CELL_TYPES.BURROW: ...
+    // case CELL_TYPES.ROOT: ...
+    // case CELL_TYPES.RAKE: ...
+    case CELL_TYPES.EMPTY:
+    default:
+      // No effect in this version.
+  }
 }
 
 /**
@@ -144,11 +189,16 @@ export function applyCellEffect(ctx, card, way) {
  * @param {string} condition A CONDITIONS value.
  * @param {RunContext} ctx
  * @returns {boolean}
+ * @throws {Error} On an unknown condition.
  */
 export function evaluateCondition(condition, ctx) {
-  // TODO: ahead = cellAhead(ctx.gnome); blocked = ctx.board.isBlocking(ahead.x, ahead.y).
-  // TODO: WALL_AHEAD -> blocked ; PATH_CLEAR -> !blocked.
-  // TODO: throw on unknown condition.
+  const ahead = cellAhead(ctx.gnome);
+  const blocked = ctx.board.isBlocking(ahead.x, ahead.y);
+  switch (condition) {
+    case CONDITIONS.WALL_AHEAD: return blocked;
+    case CONDITIONS.PATH_CLEAR: return !blocked;
+    default: throw new Error(`Unknown condition: ${condition}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -156,72 +206,75 @@ export function evaluateCondition(condition, ctx) {
 // ---------------------------------------------------------------------------
 
 /**
- * Forward N: call moveOneCell(ctx, card, 'forward') def.params.steps times.
- * Keep going after a "blocked" (it just records another blocked step), but stop
- * if shouldStop(ctx).
+ * Forward N: move one cell at a time, N times. A blocked move records a
+ * "blocked" step and the next cell is still tried.
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleForward(card, def, ctx) {
-  // TODO: implement.
+  for (let i = 0; i < def.params.steps && !shouldStop(ctx); i++) {
+    moveOneCell(ctx, card, 'forward');
+  }
 }
 
 /**
- * Back N: same as handleForward with 'back'. The direction does not change.
+ * Back N: same as handleForward backward. The direction does not change.
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleBack(card, def, ctx) {
-  // TODO: implement.
+  for (let i = 0; i < def.params.steps && !shouldStop(ctx); i++) {
+    moveOneCell(ctx, card, 'back');
+  }
 }
 
 /**
- * Turn: rotate by def.params.quarterTurns (-1 left, 1 right, 2 U-turn),
- * then record a TURNED step. (turnLeft / turnRight / uTurn from gnome.js
- * can be used, or rotateDirection directly.)
+ * Turn: rotate by def.params.quarterTurns (-1 left, 1 right, 2 U-turn).
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleTurn(card, def, ctx) {
-  // TODO: implement.
+  ctx.gnome = { ...ctx.gnome, direction: rotateDirection(ctx.gnome.direction, def.params.quarterTurns) };
+  recordStep(ctx, card.uid, STEP_EVENTS.TURNED);
 }
 
 /**
- * Repeat N: executeCards(card.slots.body, ctx) def.params.times times.
- * Nested repeats work naturally through recursion. Stop when shouldStop(ctx).
+ * Repeat N: run the body N times (nested repeats work through recursion).
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleRepeat(card, def, ctx) {
-  // TODO: implement.
+  for (let i = 0; i < def.params.times && !shouldStop(ctx); i++) {
+    executeCards(card.slots.body, ctx);
+  }
 }
 
 /**
- * If: evaluate def.params.condition, record a CHECKED step with
- * details { condition, result } (so the animation highlights the If card).
- * - true  -> executeCards(card.slots.then, ctx)
- * - false -> executeCards(card.slots.else, ctx)   (runs the Else card, if any)
+ * If: evaluate the condition, record a "checked" step (so the animation
+ * highlights the If card), then run "then" or "else".
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleIf(card, def, ctx) {
-  // TODO: implement.
+  const result = evaluateCondition(def.params.condition, ctx);
+  recordStep(ctx, card.uid, STEP_EVENTS.CHECKED, { condition: def.params.condition, result });
+  if (shouldStop(ctx)) return;
+  executeCards(result ? card.slots.then : card.slots.else, ctx);
 }
 
 /**
  * Else: only reached through handleIf when the condition is false.
- * Executes its body: executeCards(card.slots.body, ctx).
  * @param {CardInstance} card
- * @param {import('./cards.js').CardDefinition} def
+ * @param {CardDefinition} def
  * @param {RunContext} ctx
  */
 export function handleElse(card, def, ctx) {
-  // TODO: implement.
+  executeCards(card.slots.body, ctx);
 }
 
 /** Dispatch table: action name (from cards.js) -> handler. */

@@ -4,6 +4,12 @@ Gnomads est un jeu de plateau éducatif sur les algorithmes (projet MyDigitalSch
 
 Ce site n'est **pas** une version numérique du jeu. C'est un outil de test : on place le gnome et des murs sur la grille, on compose un algorithme avec les cartes du jeu (5 cartes maximum), puis on regarde où le gnome arrive.
 
+## Utilisation
+
+1. **Place gnome** : toucher une case pour y poser le gnome. **Direction** : choisir N / E / S / W (ou toucher le gnome pour le faire tourner). **Walls** : toucher une case pour poser ou retirer un mur.
+2. Toucher une carte de la palette pour l'ajouter à l'algorithme (5 cartes maximum, cartes imbriquées comprises). Quand on ajoute un Repeat, un If ou un Else, il devient la destination des cartes suivantes. Toucher un conteneur dans l'algorithme pour le sélectionner, ou **Back to main level** pour revenir au niveau principal. Un Else se pose dans un If.
+3. **Run** joue l'algorithme (le bouton devient **Stop**), **Step** avance d'une étape. La carte en cours est surlignée et un message final s'affiche.
+
 ## Lancer en local
 
 Le site utilise des modules ES (`<script type="module">`). Les navigateurs les bloquent quand on ouvre `index.html` directement (`file://`), il faut donc un petit serveur statique. Au choix :
@@ -30,7 +36,17 @@ npm test
 node --test "tests/*.test.js"
 ```
 
-Les tests ne portent que sur `js/logic/`, qui ne touche jamais au DOM. Les cas à écrire sont déjà listés dans `tests/` sous forme de `test.todo`.
+Les tests ne portent que sur `js/logic/`, qui ne touche jamais au DOM : plateau, gnome, interpréteur (déplacements, blocages, Repeat imbriqués, If / Else, trésor, limite d'étapes) et limite de 5 cartes.
+
+## Déployer sur GitHub Pages
+
+Le site est 100 % statique, à la racine du dépôt, donc aucune étape de build n'est nécessaire :
+
+1. Pousser le dépôt sur GitHub.
+2. Dans *Settings > Pages*, choisir *Deploy from a branch*, branche `main`, dossier `/ (root)`.
+3. Le site est publié sur `https://<utilisateur>.github.io/<dépôt>/` après une minute environ.
+
+Le fichier `.nojekyll` empêche GitHub de passer le site dans Jekyll.
 
 ## Déployer sur GitLab Pages
 

@@ -4,7 +4,7 @@
  *
  * Coordinates: x from 0 to BOARD_SIZE - 1 (left to right),
  *              y from 0 to BOARD_SIZE - 1 (top to bottom).
- * Storage suggestion: `cells[y][x]` holds a value of CELL_TYPES.
+ * Storage: `cells[y][x]` holds a value of CELL_TYPES.
  */
 
 import { BOARD_SIZE, TREASURE_POSITION, CELL_TYPES } from '../config.js';
@@ -14,6 +14,9 @@ import { BOARD_SIZE, TREASURE_POSITION, CELL_TYPES } from '../config.js';
  * (see `isBlocking`). Add future blocking obstacles here.
  */
 export const BLOCKING_TYPES = Object.freeze(new Set([CELL_TYPES.WALL]));
+
+/** All valid cell type values, for validation. */
+const VALID_TYPES = new Set(Object.values(CELL_TYPES));
 
 export class Board {
   /**
@@ -25,7 +28,7 @@ export class Board {
     this.size = size;
     /** @type {string[][]} cells[y][x] */
     this.cells = [];
-    // TODO: call this.reset() to fill the grid.
+    this.reset();
   }
 
   /**
@@ -34,9 +37,10 @@ export class Board {
    * @returns {void}
    */
   reset() {
-    // TODO: build a new 2D array of size x size filled with CELL_TYPES.EMPTY
-    //       (use Array.from so each row is a different array).
-    // TODO: set the treasure cell.
+    this.cells = Array.from({ length: this.size }, () => Array(this.size).fill(CELL_TYPES.EMPTY));
+    if (this.isInside(TREASURE_POSITION.x, TREASURE_POSITION.y)) {
+      this.cells[TREASURE_POSITION.y][TREASURE_POSITION.x] = CELL_TYPES.TREASURE;
+    }
   }
 
   /**
@@ -46,7 +50,8 @@ export class Board {
    * @returns {boolean} true if 0 <= x < size and 0 <= y < size.
    */
   isInside(x, y) {
-    // TODO: return the bounds check. Also reject non-integer values.
+    return Number.isInteger(x) && Number.isInteger(y)
+      && x >= 0 && y >= 0 && x < this.size && y < this.size;
   }
 
   /**
@@ -56,20 +61,22 @@ export class Board {
    * @returns {string|null} A CELL_TYPES value, or null if outside the board.
    */
   getCell(x, y) {
-    // TODO: return null when !this.isInside(x, y), otherwise this.cells[y][x].
+    return this.isInside(x, y) ? this.cells[y][x] : null;
   }
 
   /**
    * Low-level setter used by placeWall/removeWall (and later by other obstacles).
+   * The treasure cell can never be changed.
    * @param {number} x
    * @param {number} y
    * @param {string} type A CELL_TYPES value.
    * @returns {boolean} true if the cell was changed.
    */
   setCell(x, y, type) {
-    // TODO: refuse if outside the board, or if the cell is the treasure.
-    // TODO: refuse unknown types (check Object.values(CELL_TYPES)).
-    // TODO: write the value and return true.
+    if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
+    if (!VALID_TYPES.has(type) || type === CELL_TYPES.TREASURE) return false;
+    this.cells[y][x] = type;
+    return true;
   }
 
   /**
@@ -79,7 +86,7 @@ export class Board {
    * @returns {boolean}
    */
   isTreasure(x, y) {
-    // TODO: compare getCell(x, y) with CELL_TYPES.TREASURE.
+    return this.getCell(x, y) === CELL_TYPES.TREASURE;
   }
 
   /**
@@ -91,7 +98,9 @@ export class Board {
    * @returns {boolean}
    */
   canPlaceWall(x, y, gnomePosition) {
-    // TODO: return false if outside, if treasure, or if (x, y) equals gnomePosition.
+    if (!this.isInside(x, y) || this.isTreasure(x, y)) return false;
+    if (gnomePosition && gnomePosition.x === x && gnomePosition.y === y) return false;
+    return true;
   }
 
   /**
@@ -102,7 +111,8 @@ export class Board {
    * @returns {boolean} true if the wall was placed.
    */
   placeWall(x, y, gnomePosition) {
-    // TODO: use canPlaceWall, then setCell(x, y, CELL_TYPES.WALL).
+    if (!this.canPlaceWall(x, y, gnomePosition)) return false;
+    return this.setCell(x, y, CELL_TYPES.WALL);
   }
 
   /**
@@ -112,7 +122,8 @@ export class Board {
    * @returns {boolean} true if a wall was removed.
    */
   removeWall(x, y) {
-    // TODO: only act if getCell(x, y) === CELL_TYPES.WALL.
+    if (this.getCell(x, y) !== CELL_TYPES.WALL) return false;
+    return this.setCell(x, y, CELL_TYPES.EMPTY);
   }
 
   /**
@@ -124,15 +135,20 @@ export class Board {
    * @returns {boolean} true if the board changed.
    */
   toggleWall(x, y, gnomePosition) {
-    // TODO: call removeWall or placeWall.
+    if (this.getCell(x, y) === CELL_TYPES.WALL) return this.removeWall(x, y);
+    return this.placeWall(x, y, gnomePosition);
   }
 
   /**
-   * Remove every wall but keep the treasure (and future obstacles if wanted).
+   * Remove every wall but keep the treasure (and other obstacles).
    * @returns {void}
    */
   clearWalls() {
-    // TODO: loop over all cells and replace CELL_TYPES.WALL with CELL_TYPES.EMPTY.
+    for (const row of this.cells) {
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] === CELL_TYPES.WALL) row[x] = CELL_TYPES.EMPTY;
+      }
+    }
   }
 
   /**
@@ -142,8 +158,8 @@ export class Board {
    * @returns {boolean} true if outside the board or the type is in BLOCKING_TYPES.
    */
   isBlocking(x, y) {
-    // TODO: return true when !isInside(x, y).
-    // TODO: return BLOCKING_TYPES.has(getCell(x, y)).
+    if (!this.isInside(x, y)) return true;
+    return BLOCKING_TYPES.has(this.getCell(x, y));
   }
 
   /**
@@ -153,7 +169,7 @@ export class Board {
    * @returns {boolean} true if inside, not blocking and not the treasure.
    */
   canPlaceGnome(x, y) {
-    // TODO: implement.
+    return this.isInside(x, y) && !this.isBlocking(x, y) && !this.isTreasure(x, y);
   }
 
   /**
@@ -161,6 +177,8 @@ export class Board {
    * @returns {Board}
    */
   clone() {
-    // TODO: create a new Board(this.size) and copy each row (row.slice()).
+    const copy = new Board(this.size);
+    copy.cells = this.cells.map((row) => row.slice());
+    return copy;
   }
 }

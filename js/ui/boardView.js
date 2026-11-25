@@ -14,6 +14,18 @@ export const ICONS = Object.freeze({
   treasure: 'assets/icons/treasure.svg',
 });
 
+/** Icon shown for each cell type (types without an icon only get a colour). */
+const CELL_ICONS = Object.freeze({
+  [CELL_TYPES.WALL]: ICONS.wall,
+  [CELL_TYPES.TREASURE]: ICONS.treasure,
+});
+
+/** Every `cell--<type>` class, to remove them before applying the new one. */
+const CELL_TYPE_CLASSES = Object.values(CELL_TYPES).map((type) => `cell--${type}`);
+
+/** Temporary effect classes. */
+const EFFECT_CLASSES = ['cell--trail', 'cell--blocked', 'cell--victory'];
+
 export class BoardView {
   /**
    * @param {HTMLElement} rootElement The #board element.
@@ -25,35 +37,70 @@ export class BoardView {
     this.callbacks = callbacks;
     /** @type {HTMLButtonElement[][]} cellElements[y][x] */
     this.cellElements = [];
+    /** @type {HTMLImageElement[][]} iconElements[y][x] */
+    this.iconElements = [];
     /** @type {HTMLElement|null} The gnome element, moved from cell to cell. */
     this.gnomeElement = null;
     /** @type {boolean} */
     this.locked = false;
 
-    // TODO: this.buildGrid(); this.bindEvents();
+    this.buildGrid();
+    this.bindEvents();
   }
 
   /**
-   * Create the BOARD_SIZE x BOARD_SIZE cell buttons once.
-   * Each cell is a <button class="cell" data-x data-y role="gridcell"> with an
-   * aria-label like "x 3, y 7". Also create the gnome element
-   * (<div class="gnome"><img src=ICONS.gnome alt=""></div>).
+   * Create the BOARD_SIZE x BOARD_SIZE cell buttons once, and the gnome element.
    * @returns {void}
    */
   buildGrid() {
-    // TODO: clear this.root, set style --board-size to BOARD_SIZE.
-    // TODO: double loop y then x (row order = DOM order for CSS Grid).
-    // TODO: store each button in this.cellElements[y][x].
+    this.root.replaceChildren();
+    this.root.style.setProperty('--board-size', String(BOARD_SIZE));
+    this.cellElements = [];
+    this.iconElements = [];
+
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      const cellRow = [];
+      const iconRow = [];
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cell';
+        cell.dataset.x = String(x);
+        cell.dataset.y = String(y);
+
+        const icon = document.createElement('img');
+        icon.className = 'cell__icon';
+        icon.alt = '';
+        icon.hidden = true;
+        cell.append(icon);
+
+        this.root.append(cell);
+        cellRow.push(cell);
+        iconRow.push(icon);
+      }
+      this.cellElements.push(cellRow);
+      this.iconElements.push(iconRow);
+    }
+
+    this.gnomeElement = document.createElement('div');
+    this.gnomeElement.className = 'gnome';
+    const gnomeImg = document.createElement('img');
+    gnomeImg.src = ICONS.gnome;
+    gnomeImg.alt = '';
+    this.gnomeElement.append(gnomeImg);
   }
 
   /**
    * One click listener on the grid (event delegation), works with touch.
-   * Reads data-x / data-y from the closest .cell and calls callbacks.onCellTap.
-   * Ignores taps while this.locked.
    * @returns {void}
    */
   bindEvents() {
-    // TODO: this.root.addEventListener('click', ...).
+    this.root.addEventListener('click', (event) => {
+      if (this.locked) return;
+      const cell = /** @type {HTMLElement} */ (event.target).closest('.cell');
+      if (!cell || !this.root.contains(cell)) return;
+      this.callbacks.onCellTap(Number(cell.dataset.x), Number(cell.dataset.y));
+    });
   }
 
   /**
@@ -64,9 +111,15 @@ export class BoardView {
    * @returns {void}
    */
   render(board, gnome, startGnome) {
-    // TODO: for each cell -> this.updateCell(x, y, board.getCell(x, y)).
-    // TODO: mark the start cell with .cell--start (when gnome is not on it).
-    // TODO: this.renderGnome(gnome).
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        this.updateCell(x, y, board.getCell(x, y));
+        const isStart = Boolean(startGnome) && startGnome.x === x && startGnome.y === y
+          && !(gnome.x === x && gnome.y === y);
+        this.cellElements[y][x].classList.toggle('cell--start', isStart);
+      }
+    }
+    this.renderGnome(gnome);
   }
 
   /**
@@ -77,24 +130,56 @@ export class BoardView {
    * @returns {void}
    */
   updateCell(x, y, type) {
-    // TODO: remove previous .cell--<type> classes, add `cell--${type}` unless EMPTY.
-    // TODO: show the wall / treasure icon (img) for WALL and TREASURE.
-    // TODO: update aria-label with the type for screen readers.
+    const cell = this.cellElements[y][x];
+    cell.classList.remove(...CELL_TYPE_CLASSES);
+    if (type !== CELL_TYPES.EMPTY) cell.classList.add(`cell--${type}`);
+
+    const icon = this.iconElements[y][x];
+    const src = CELL_ICONS[type];
+    if (src) {
+      if (icon.getAttribute('src') !== src) icon.src = src;
+      icon.hidden = false;
+    } else {
+      icon.hidden = true;
+    }
+
+    const typeLabel = type === CELL_TYPES.EMPTY ? '' : `, ${type}`;
+    cell.setAttribute('aria-label', `x ${x}, y ${y}${typeLabel}`);
   }
 
   /**
-   * Move the gnome element into its cell and rotate it.
+   * Move the gnome element into its cell, rotate it and play a small effect.
    * @param {import('../logic/gnome.js').GnomeState} gnome
-   * @param {string} [event] STEP_EVENTS value, to play a small effect
-   *   (BLOCKED -> .cell--blocked shake, TREASURE -> .cell--victory).
+   * @param {string} [event] STEP_EVENTS value.
    * @returns {void}
    */
   renderGnome(gnome, event) {
-    // TODO: append this.gnomeElement to cellElements[gnome.y][gnome.x].
-    // TODO: set className to `gnome gnome--${gnome.direction}`.
-    // TODO: set aria-label "Gnome facing <TEXTS.directions[dir]>".
-    // TODO: add the effect class, remove it on 'animationend'.
-    // TODO: optional: add .cell--trail to the cells already visited during the run.
+    const cell = this.cellElements[gnome.y]?.[gnome.x];
+    if (!cell) return;
+    if (this.gnomeElement.parentElement !== cell) cell.append(this.gnomeElement);
+
+    this.gnomeElement.className = `gnome gnome--${gnome.direction}`;
+    this.gnomeElement.setAttribute('aria-label', `Gnome facing ${TEXTS.directions[gnome.direction]}`);
+    this.gnomeElement.setAttribute('role', 'img');
+
+    if (event === STEP_EVENTS.MOVED || event === STEP_EVENTS.TREASURE) {
+      cell.classList.add('cell--trail');
+    }
+    if (event === STEP_EVENTS.BLOCKED) this.playEffect(cell, 'cell--blocked');
+    if (event === STEP_EVENTS.TREASURE) this.playEffect(cell, 'cell--victory');
+  }
+
+  /**
+   * Restart a CSS animation class on a cell, and remove it when it ends.
+   * @param {HTMLElement} cell
+   * @param {string} className
+   * @returns {void}
+   */
+  playEffect(cell, className) {
+    cell.classList.remove(className);
+    void cell.offsetWidth; // force a reflow so the animation restarts
+    cell.classList.add(className);
+    cell.addEventListener('animationend', () => cell.classList.remove(className), { once: true });
   }
 
   /**
@@ -102,7 +187,9 @@ export class BoardView {
    * @returns {void}
    */
   clearEffects() {
-    // TODO: remove .cell--trail, .cell--blocked, .cell--victory from all cells.
+    for (const row of this.cellElements) {
+      for (const cell of row) cell.classList.remove(...EFFECT_CLASSES);
+    }
   }
 
   /**
@@ -111,7 +198,7 @@ export class BoardView {
    * @returns {void}
    */
   setMode(mode) {
-    // TODO: this.root.dataset.mode = mode.
+    this.root.dataset.mode = mode;
   }
 
   /**
@@ -120,6 +207,7 @@ export class BoardView {
    * @returns {void}
    */
   setLocked(locked) {
-    // TODO: this.locked = locked; toggle .is-running on this.root.
+    this.locked = locked;
+    this.root.classList.toggle('is-running', locked);
   }
 }
